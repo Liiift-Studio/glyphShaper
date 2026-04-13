@@ -140,7 +140,7 @@ const url = applyFontBlob('MyFont', fontToBlob(font))
 							<tbody className="opacity-70">
 								<tr className="border-t border-white/10 hover:bg-white/5 transition-colors">
 									<td className="py-2 pr-6 font-mono">parseFont(buffer)</td>
-									<td className="py-2">Parse an ArrayBuffer (TTF/OTF/WOFF1) into a GlyphFont handle.</td>
+									<td className="py-2">Parse an ArrayBuffer (TTF, OTF, WOFF1, or WOFF2) into a GlyphFont handle.</td>
 								</tr>
 								<tr className="border-t border-white/10 hover:bg-white/5 transition-colors">
 									<td className="py-2 pr-6 font-mono">getGlyphCommands(font, char)</td>
@@ -170,14 +170,12 @@ const url = applyFontBlob('MyFont', fontToBlob(font))
 						</table>
 					</div>
 					<div className="flex flex-col gap-3">
-						<p className="opacity-50">Font format note</p>
+						<p className="opacity-50">Font format support</p>
 						<p className="text-xs opacity-60 leading-relaxed">
-							glyphForge uses opentype.js which requires <strong>uncompressed</strong> font
-							data. This means <strong>TTF, OTF, or WOFF1</strong> (zlib-compressed, supported
-							natively by opentype.js). <strong>WOFF2 is not supported</strong> — it uses
-							brotli compression that requires a separate decoder. If you only have WOFF2,
-							convert it to TTF first using a tool like{" "}
-							<code className="font-mono">woff2_decompress</code> or fonttools.
+							glyphForge accepts <strong>TTF, OTF, WOFF1, and WOFF2</strong>. WOFF2 is
+							transparently decompressed in the browser using{" "}
+							<code className="font-mono">wawoff2</code> (a WASM brotli decoder) before
+							being passed to opentype.js — no conversion step needed.
 						</p>
 					</div>
 				</div>

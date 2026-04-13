@@ -12,8 +12,8 @@ const DEMO_FAMILY = "GlyphForgeDemo"
 /** Sample text whose characters populate the editor palette */
 const SAMPLE = "Typography"
 
-/** Accepted font MIME types — opentype.js can parse TTF, OTF, and WOFF1 */
-const ACCEPT = ".ttf,.otf,.woff"
+/** Accepted font file extensions */
+const ACCEPT = ".ttf,.otf,.woff,.woff2"
 
 export default function Demo() {
 	const [font, setFont]         = useState<GlyphFont | null>(null)
@@ -76,7 +76,7 @@ export default function Demo() {
 					<p className="text-xs opacity-40 font-mono">{fileName}</p>
 				)}
 				<label className="text-xs px-4 py-2 rounded-full border border-white/30 cursor-pointer hover:bg-white/5 transition-colors">
-					Choose TTF / OTF / WOFF
+					Choose TTF / OTF / WOFF / WOFF2
 					<input
 						type="file"
 						accept={ACCEPT}
@@ -85,9 +85,6 @@ export default function Demo() {
 						aria-label="Upload a font file"
 					/>
 				</label>
-				<p className="text-xs opacity-30">
-					Not WOFF2 — opentype.js requires uncompressed font data
-				</p>
 			</div>
 
 			{/* Error */}
@@ -140,7 +137,7 @@ export default function Demo() {
 			)}
 
 			<p className="text-xs opacity-50 italic" style={{ lineHeight: "1.8" }}>
-				Upload any TTF or OTF font. Click a character tile to open its bezier path editor.
+				Upload any TTF, OTF, WOFF, or WOFF2 font. Click a character tile to open its bezier path editor.
 				Drag anchors (filled circles) or handles (outlined circles) to reshape the glyph.
 				Hit <strong>Apply to page</strong> and every instance — headings, body text,
 				wherever that font-family is used — re-renders instantly via a dynamic{" "}

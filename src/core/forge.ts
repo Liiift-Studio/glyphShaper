@@ -11,18 +11,47 @@ import type { PathCommand, GlyphForgeOptions } from './types'
  */
 export type GlyphFont = { _font: OpentypeFont }
 
+// ─── WOFF2 decompression ──────────────────────────────────────────────────────
+
+/** WOFF2 magic bytes: "wOF2" (0x774F4632) at byte offset 0 */
+const WOFF2_MAGIC = 0x774f4632
+
+/**
+ * Return true if the buffer starts with the WOFF2 signature.
+ * Does not validate the rest of the header.
+ */
+function isWoff2(buffer: ArrayBuffer): boolean {
+	if (buffer.byteLength < 4) return false
+	return new DataView(buffer).getUint32(0, false) === WOFF2_MAGIC
+}
+
+/**
+ * Decompress a WOFF2 buffer to a raw OTF/TTF ArrayBuffer using wawoff2 (WASM brotli).
+ * Dynamic import so the WASM module is only loaded when actually needed.
+ */
+async function decompressWoff2(buffer: ArrayBuffer): Promise<ArrayBuffer> {
+	const { decompress } = await import('wawoff2')
+	const result = await decompress(new Uint8Array(buffer))
+	return result.buffer as ArrayBuffer
+}
+
 // ─── Parse ────────────────────────────────────────────────────────────────────
 
 /**
- * Parse an ArrayBuffer containing a TTF or OTF font binary into a GlyphFont handle.
+ * Parse an ArrayBuffer into a GlyphFont handle.
+ * Accepts TTF, OTF, WOFF1, and WOFF2 — WOFF2 is transparently decompressed
+ * via wawoff2 (WASM brotli) before being passed to opentype.js.
  * Throws if the buffer is not a valid font.
  *
  * @param buffer - Raw font bytes from fetch().arrayBuffer() or FileReader
  */
 export async function parseFont(buffer: ArrayBuffer): Promise<GlyphFont> {
+	// Decompress WOFF2 before parsing — opentype.js requires uncompressed data
+	const raw = isWoff2(buffer) ? await decompressWoff2(buffer) : buffer
+
 	// Dynamic import keeps opentype.js out of the critical path and SSR-safe
 	const { parse } = await import('opentype.js')
-	const font = parse(buffer)
+	const font = parse(raw)
 	return { _font: font }
 }
 
