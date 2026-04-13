@@ -1,7 +1,7 @@
-// glyphForge/src/core/forge.ts — font parsing, glyph extraction, and @font-face override
+// glyphShaper/src/core/forge.ts — font parsing, glyph extraction, and @font-face override
 
 import type { Font as OpentypeFont } from 'opentype.js'
-import type { PathCommand, GlyphForgeOptions } from './types'
+import type { PathCommand, GlyphShaperOptions } from './types'
 
 // ─── Internal font handle ────────────────────────────────────────────────────
 
@@ -108,7 +108,7 @@ export function fontToBlob(font: GlyphFont): Blob {
 // ─── Apply override ───────────────────────────────────────────────────────────
 
 /** Style element ID used for the injected @font-face override */
-const STYLE_ID = 'glyphforge-override'
+const STYLE_ID = 'glyphshaper-override'
 
 /**
  * Inject a dynamic @font-face rule that overrides the named font family with
@@ -126,7 +126,7 @@ export function applyFontBlob(
 	fontFamily: string,
 	blob: Blob,
 	existingUrl?: string,
-	options: GlyphForgeOptions = {},
+	options: GlyphShaperOptions = {},
 ): string {
 	if (existingUrl) URL.revokeObjectURL(existingUrl)
 	const url = URL.createObjectURL(blob)

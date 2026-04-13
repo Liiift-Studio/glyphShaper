@@ -3,8 +3,8 @@
 // Click-to-copy npm install snippet with a link to the npm package page
 import { useState } from "react"
 
-const CMD = "npm install @liiift-studio/glyphforge"
-const NPM_URL = "https://www.npmjs.com/package/@liiift-studio/glyphforge"
+const CMD = "npm install @liiift-studio/glyphshaper"
+const NPM_URL = "https://www.npmjs.com/package/@liiift-studio/glyphshaper"
 
 /** Displays the install command, copies it to clipboard on click, and links to npm */
 export default function CopyInstall() {

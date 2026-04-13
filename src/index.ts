@@ -1,7 +1,7 @@
-// glyphForge/src/index.ts — public API exports
+// glyphShaper/src/index.ts — public API exports
 
 // Core types
-export type { PathCommand, GlyphForgeOptions, CmdM, CmdL, CmdC, CmdQ, CmdZ } from './core/types'
+export type { PathCommand, GlyphShaperOptions, CmdM, CmdL, CmdC, CmdQ, CmdZ } from './core/types'
 
 // Core functions
 export type { GlyphFont } from './core/forge'
@@ -17,4 +17,4 @@ export {
 
 // React
 export { useGlyphFont } from './react/useGlyphFont'
-export { GlyphForgeEditor } from './react/GlyphForgeEditor'
+export { GlyphShaperEditor } from './react/GlyphForgeEditor'

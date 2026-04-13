@@ -1,4 +1,4 @@
-// glyphForge/src/react/GlyphForgeEditor.tsx — interactive glyph bezier editor component
+// glyphShaper/src/react/GlyphForgeEditor.tsx — interactive glyph bezier editor component
 
 'use client'
 
@@ -334,8 +334,8 @@ function GlyphSvgEditor({
 
 // ─── Main exported component ──────────────────────────────────────────────────
 
-/** Props for GlyphForgeEditor */
-export interface GlyphForgeEditorProps {
+/** Props for GlyphShaperEditor */
+export interface GlyphShaperEditorProps {
 	/**
 	 * Parsed font from useGlyphFont() or parseFont().
 	 * Pass null while the font is loading to render a disabled state.
@@ -373,16 +373,16 @@ export interface GlyphForgeEditorProps {
  *
  * @example
  * const { font } = useGlyphFont('/fonts/MyFont.ttf')
- * <GlyphForgeEditor font={font} fontFamily="MyFont" text="Heading">
+ * <GlyphShaperEditor font={font} fontFamily="MyFont" text="Heading">
  *   <h1 style={{ fontFamily: 'MyFont' }}>Heading</h1>
- * </GlyphForgeEditor>
+ * </GlyphShaperEditor>
  */
-export function GlyphForgeEditor({
+export function GlyphShaperEditor({
 	font,
 	fontFamily,
 	text = 'Typography',
 	children,
-}: GlyphForgeEditorProps) {
+}: GlyphShaperEditorProps) {
 	const [editingChar, setEditingChar] = useState<string | null>(null)
 	const [commands, setCommands]       = useState<PathCommand[]>([])
 	/** Undo history — each entry is a pre-drag snapshot of the commands array */

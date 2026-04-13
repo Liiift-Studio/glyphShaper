@@ -1,4 +1,4 @@
-// glyphForge/src/core/types.ts — path command types and options interface
+// glyphShaper/src/core/types.ts — path command types and options interface
 
 /**
  * A moveto command — lifts the pen to an absolute position.
@@ -31,7 +31,7 @@ export interface CmdZ { type: 'Z' }
 export type PathCommand = CmdM | CmdL | CmdC | CmdQ | CmdZ
 
 /** Options for the @font-face override rule injected by applyFontBlob */
-export interface GlyphForgeOptions {
+export interface GlyphShaperOptions {
 	/** CSS font-weight for the @font-face rule. Default: 'normal' */
 	fontWeight?: string
 	/** CSS font-style for the @font-face rule. Default: 'normal' */

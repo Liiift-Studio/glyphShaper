@@ -1,4 +1,4 @@
-// glyphForge/src/react/useGlyphFont.ts — React hook for loading and parsing a font
+// glyphShaper/src/react/useGlyphFont.ts — React hook for loading and parsing a font
 
 'use client'
 

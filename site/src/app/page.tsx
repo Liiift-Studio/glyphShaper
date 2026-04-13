@@ -11,7 +11,7 @@ export default function Home() {
 			{/* Hero */}
 			<section className="w-full max-w-2xl lg:max-w-5xl flex flex-col gap-6">
 				<div className="flex flex-col gap-2">
-					<p className="text-xs uppercase tracking-widest opacity-50">glyphforge</p>
+					<p className="text-xs uppercase tracking-widest opacity-50">glyphshaper</p>
 					<h1 className="text-4xl lg:text-8xl xl:text-9xl" style={{ lineHeight: "1.05em", letterSpacing: "-0.02em" }}>
 						Edit a glyph.<br />
 						<span style={{ opacity: 0.5, fontStyle: "italic" }}>Watch it everywhere.</span>
@@ -19,14 +19,14 @@ export default function Home() {
 				</div>
 				<div className="flex items-center gap-4">
 					<CopyInstall />
-					<a href="https://github.com/Liiift-Studio/glyphForge" className="text-sm opacity-50 hover:opacity-100 transition-opacity">GitHub</a>
+					<a href="https://github.com/Liiift-Studio/glyphShaper" className="text-sm opacity-50 hover:opacity-100 transition-opacity">GitHub</a>
 				</div>
 				<div className="flex flex-wrap gap-x-4 gap-y-1 text-xs opacity-50 tracking-wide">
 					<span>TypeScript</span><span>·</span><span>opentype.js</span><span>·</span><span>React + Vanilla JS</span><span>·</span><span>No server</span>
 				</div>
 				<p className="text-base opacity-60 leading-relaxed max-w-lg">
 					Click any character, drag its bezier control points to reshape the outline, then
-					hit Apply. glyphForge regenerates the font binary in the browser and injects a
+					hit Apply. glyphShaper regenerates the font binary in the browser and injects a
 					dynamic <code className="text-xs font-mono">@font-face</code> override — every
 					instance of that character on the page re-renders instantly. No server, no export,
 					no page reload.
@@ -47,7 +47,7 @@ export default function Home() {
 				<div className="prose-grid grid grid-cols-1 sm:grid-cols-2 gap-12 text-sm leading-relaxed opacity-70">
 					<div className="flex flex-col gap-3">
 						<p className="font-semibold opacity-100 text-base">Parse, edit, regenerate</p>
-						<p>glyphForge uses opentype.js to parse the uploaded font binary into a structured
+						<p>glyphShaper uses opentype.js to parse the uploaded font binary into a structured
 						object. Each glyph&apos;s <code className="text-xs font-mono">path.commands</code> array
 						— moveTo, lineTo, curveTo, quadraticCurveTo — is exposed as draggable SVG control
 						points. When you hit Apply, the modified font object is serialised back to an
@@ -74,7 +74,7 @@ export default function Home() {
 						<p className="font-semibold opacity-100 text-base">Ephemeral by design</p>
 						<p>Every edit lives entirely in the browser&apos;s memory. The original font
 						file is never written to disk. Refreshing the page resets everything.
-						This makes glyphForge ideal for live demos, design explorations, and
+						This makes glyphShaper ideal for live demos, design explorations, and
 						teaching moments — low commitment, instant feedback, no pipeline.</p>
 					</div>
 				</div>
@@ -89,17 +89,17 @@ export default function Home() {
 				<div className="flex flex-col gap-8 text-sm">
 					<div className="flex flex-col gap-3">
 						<p className="opacity-50">Drop-in editor component</p>
-						<CodeBlock code={`import { useGlyphFont, GlyphForgeEditor } from '@liiift-studio/glyphforge'
+						<CodeBlock code={`import { useGlyphFont, GlyphShaperEditor } from '@liiift-studio/glyphshaper'
 
 const { font } = useGlyphFont('/fonts/MyFont.ttf')
 
-<GlyphForgeEditor font={font} fontFamily="MyFont" text="Heading">
+<GlyphShaperEditor font={font} fontFamily="MyFont" text="Heading">
   <h1 style={{ fontFamily: 'MyFont' }}>Heading</h1>
-</GlyphForgeEditor>`} />
+</GlyphShaperEditor>`} />
 					</div>
 					<div className="flex flex-col gap-3">
 						<p className="opacity-50">Load from uploaded File</p>
-						<CodeBlock code={`import { useGlyphFont } from '@liiift-studio/glyphforge'
+						<CodeBlock code={`import { useGlyphFont } from '@liiift-studio/glyphshaper'
 
 // Pass a File object from an <input type="file"> onChange handler
 const { font, loading, error } = useGlyphFont(file)`} />
@@ -109,7 +109,7 @@ const { font, loading, error } = useGlyphFont(file)`} />
 						<CodeBlock code={`import {
   parseFont, getGlyphCommands, setGlyphCommands,
   fontToBlob, applyFontBlob,
-} from '@liiift-studio/glyphforge'
+} from '@liiift-studio/glyphshaper'
 
 const res    = await fetch('/fonts/MyFont.ttf')
 const buffer = await res.arrayBuffer()
@@ -172,7 +172,7 @@ const url = applyFontBlob('MyFont', fontToBlob(font))
 					<div className="flex flex-col gap-3">
 						<p className="opacity-50">Font format support</p>
 						<p className="text-xs opacity-60 leading-relaxed">
-							glyphForge accepts <strong>TTF, OTF, WOFF1, and WOFF2</strong>. WOFF2 is
+							glyphShaper accepts <strong>TTF, OTF, WOFF1, and WOFF2</strong>. WOFF2 is
 							transparently decompressed in the browser using{" "}
 							<code className="font-mono">wawoff2</code> (a WASM brotli decoder) before
 							being passed to opentype.js — no conversion step needed.
@@ -183,11 +183,11 @@ const url = applyFontBlob('MyFont', fontToBlob(font))
 
 			{/* Footer */}
 			<footer className="w-full max-w-2xl lg:max-w-5xl flex flex-col gap-6 pt-8 border-t border-white/10 text-xs">
-				<ToolDirectory current="glyphForge" />
+				<ToolDirectory current="glyphShaper" />
 				<hr className="border-white/10" />
 				<div className="grid grid-cols-2 sm:grid-cols-4 gap-x-8 opacity-50">
 					<a href="https://liiift.studio" className="hover:opacity-100 transition-opacity">liiift.studio</a>
-					<span className="sm:col-start-4">glyphForge v{version}</span>
+					<span className="sm:col-start-4">glyphShaper v{version}</span>
 				</div>
 			</footer>
 

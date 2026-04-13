@@ -1,13 +1,13 @@
 "use client"
 
-// Interactive demo — file upload drives the GlyphForgeEditor; shows sample text and palette
+// Interactive demo — file upload drives the GlyphShaperEditor; shows sample text and palette
 import { useState, useRef, useCallback } from "react"
-import { parseFont, applyFontBlob, fontToBlob } from "@liiift-studio/glyphforge"
-import { GlyphForgeEditor } from "@liiift-studio/glyphforge"
-import type { GlyphFont } from "@liiift-studio/glyphforge"
+import { parseFont, applyFontBlob, fontToBlob } from "@liiift-studio/glyphshaper"
+import { GlyphShaperEditor } from "@liiift-studio/glyphshaper"
+import type { GlyphFont } from "@liiift-studio/glyphshaper"
 
 /** CSS font-family name used for the demo override rule */
-const DEMO_FAMILY = "GlyphForgeDemo"
+const DEMO_FAMILY = "GlyphShaperDemo"
 
 /** Sample text whose characters populate the editor palette */
 const SAMPLE = "Typography"
@@ -96,7 +96,7 @@ export default function Demo() {
 			{font ? (
 				<div className="rounded-xl overflow-hidden" style={{ background: "rgba(0,0,0,0.25)" }}>
 					<div className="px-6 py-6">
-						<GlyphForgeEditor font={font} fontFamily={DEMO_FAMILY} text={SAMPLE}>
+						<GlyphShaperEditor font={font} fontFamily={DEMO_FAMILY} text={SAMPLE}>
 							{/* Sample text rendered with the uploaded font */}
 							<p
 								style={{
@@ -120,7 +120,7 @@ export default function Demo() {
 							>
 								The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs.
 							</p>
-						</GlyphForgeEditor>
+						</GlyphShaperEditor>
 					</div>
 				</div>
 			) : (
