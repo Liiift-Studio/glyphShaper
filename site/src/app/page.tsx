@@ -35,7 +35,7 @@ export default function Home() {
 
 			{/* Demo */}
 			<section className="w-full max-w-2xl lg:max-w-5xl flex flex-col gap-4">
-				<p className="text-xs uppercase tracking-widest opacity-50">Live demo — upload any TTF or OTF</p>
+				<p className="text-xs uppercase tracking-widest opacity-50">Interactive demo</p>
 				<div className="rounded-xl -mx-8 px-8 py-8" style={{ background: "rgba(0,0,0,0.25)", overflow: "hidden" }}>
 					<Demo />
 				</div>
