@@ -1,10 +1,18 @@
 @import "tailwindcss";
 
+/* Preload Merriweather so the demo fetch hits the browser cache */
+@font-face {
+	font-family: "Merriweather";
+	src: url("/fonts/Merriweather.woff2") format("woff2");
+	font-weight: 400 900;
+	font-display: swap;
+}
+
 :root {
 	--background: #0e0c12;
 	--foreground: #f0ece3;
 	--btn-bg: rgba(212, 184, 240, 0.12);
-	--font-sans: sans-serif;
+	--font-sans: var(--font-inter, sans-serif);
 }
 
 @theme inline {

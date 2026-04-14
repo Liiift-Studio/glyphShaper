@@ -1,5 +1,8 @@
 import type { Metadata } from "next"
 import "./globals.css"
+import { Inter } from "next/font/google"
+
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 
 export const metadata: Metadata = {
 	title: "glyphShaper — Live glyph path editor for the browser",
@@ -23,7 +26,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
 	return (
-		<html lang="en" className="h-full antialiased">
+		<html lang="en" className={`h-full antialiased ${inter.variable}`}>
 			<body className="min-h-full flex flex-col">{children}</body>
 		</html>
 	)
