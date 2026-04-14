@@ -18,6 +18,7 @@ function tokenize(code: string): ReactNode[] {
 	let match: RegExpExecArray | null
 
 	while ((match = TOKEN.exec(code)) !== null) {
+		// Plain gap (whitespace, numbers, operators not in punct set)
 		if (match.index > last) {
 			nodes.push(<span key={key++} style={{ opacity: 0.6 }}>{code.slice(last, match.index)}</span>)
 		}
