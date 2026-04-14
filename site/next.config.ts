@@ -1,20 +1,12 @@
+// next.config.ts — synced from type-tools/shared/site/next.config.ts. Do not edit directly.
 import type { NextConfig } from "next"
+import path from "path"
 
 const nextConfig: NextConfig = {
-	// wawoff2 and opentype.js use Node.js built-ins — exclude from SSR bundle
-	serverExternalPackages: ["wawoff2", "opentype.js"],
-
-	// Stub fs/path for the browser build — wawoff2 conditionally requires them
-	// but never actually needs them in the browser/WASM context
-	webpack: (config, { isServer }) => {
-		if (!isServer) {
-			config.resolve.fallback = {
-				...config.resolve.fallback,
-				fs:   false,
-				path: false,
-			}
-		}
-		return config
+	turbopack: {
+		// Set workspace root so Turbopack can resolve the sibling npm package
+		// and imports like ../../../package.json from within the site/ subdirectory.
+		root: path.resolve(__dirname, ".."),
 	},
 }
 
