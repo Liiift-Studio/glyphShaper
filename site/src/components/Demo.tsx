@@ -79,13 +79,21 @@ export default function Demo() {
 				for (const chunk of chunks) { merged.set(chunk, offset); offset += chunk.length }
 				const buffer = merged.buffer
 
-				// Stage 2 — decode WOFF2 + parse glyphs (opentype.js, async)
+				// Stage 2 — decode WOFF2 + parse glyphs (opentype.js, async).
+				// parseFont has no progress callbacks, so animate the bar toward 85%
+				// with an exponential ease that slows as it approaches the ceiling.
 				setLoadStage("Decoding WOFF2")
-				setLoadPct(50)
+				setLoadPct(42)
 				await new Promise(r => setTimeout(r, 0)) // yield to UI
-				setLoadStage("Parsing glyphs")
-				setLoadPct(65)
-				const parsed = await parseFont(buffer)
+
+				let animPct = 42
+				const animTimer = setInterval(() => {
+					animPct = animPct + (85 - animPct) * 0.06
+					setLoadPct(Math.round(animPct))
+					if (animPct > 83) setLoadStage("Parsing glyphs")
+				}, 80)
+
+				const parsed = await parseFont(buffer).finally(() => clearInterval(animTimer))
 				if (cancelled) return
 
 				// Stage 3 — serialise to Blob and inject @font-face
