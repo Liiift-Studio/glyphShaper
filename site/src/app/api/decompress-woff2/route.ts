@@ -5,7 +5,8 @@ export async function POST(req: NextRequest) {
 	const bytes = new Uint8Array(await req.arrayBuffer())
 	const { decompress } = await import('wawoff2')
 	const result: Uint8Array = await decompress(bytes)
-	return new NextResponse(result.buffer as ArrayBuffer, {
+	const buf = result.buffer.slice(result.byteOffset, result.byteOffset + result.byteLength)
+	return new NextResponse(buf as ArrayBuffer, {
 		headers: { 'Content-Type': 'application/octet-stream' },
 	})
 }
