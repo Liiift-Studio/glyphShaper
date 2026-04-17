@@ -26,28 +26,51 @@ function isWoff2(buffer: ArrayBuffer): boolean {
 }
 
 /**
- * Decompress a WOFF2 buffer to a raw OTF/TTF ArrayBuffer using wawoff2 (WASM brotli).
- * Dynamic import so the WASM module is only loaded when actually needed.
+ * A function that decompresses a WOFF2 ArrayBuffer to a raw OTF/TTF ArrayBuffer.
+ * Pass one to parseFont() when handling WOFF2 input — the library does not bundle
+ * a decompressor itself to stay browser-safe.
+ *
+ * Example using wawoff2 in a Node.js / server context:
+ * ```ts
+ * import { decompress } from 'wawoff2'
+ * const decompressor: Woff2Decompressor = async (buf) => {
+ *   const result = await decompress(new Uint8Array(buf))
+ *   return result.buffer as ArrayBuffer
+ * }
+ * ```
+ *
+ * Example using a fetch-based proxy (browser-safe):
+ * ```ts
+ * const decompressor: Woff2Decompressor = async (buf) => {
+ *   const res = await fetch('/api/decompress-woff2', { method: 'POST', body: buf })
+ *   return res.arrayBuffer()
+ * }
+ * ```
  */
-async function decompressWoff2(buffer: ArrayBuffer): Promise<ArrayBuffer> {
-	const { decompress } = await import('wawoff2')
-	const result = await decompress(new Uint8Array(buffer))
-	return result.buffer as ArrayBuffer
-}
+export type Woff2Decompressor = (woff2Buffer: ArrayBuffer) => Promise<ArrayBuffer>
 
 // ─── Parse ────────────────────────────────────────────────────────────────────
 
 /**
  * Parse an ArrayBuffer into a GlyphFont handle.
- * Accepts TTF, OTF, WOFF1, and WOFF2 — WOFF2 is transparently decompressed
- * via wawoff2 (WASM brotli) before being passed to opentype.js.
+ * Accepts TTF, OTF, and WOFF1 natively. For WOFF2 input, provide a
+ * woff2Decompressor — the library does not bundle one to stay browser-safe.
  * Throws if the buffer is not a valid font.
  *
- * @param buffer - Raw font bytes from fetch().arrayBuffer() or FileReader
+ * @param buffer           - Raw font bytes from fetch().arrayBuffer() or FileReader
+ * @param woff2Decompressor - Optional decompressor for WOFF2 input (see Woff2Decompressor type)
  */
-export async function parseFont(buffer: ArrayBuffer): Promise<GlyphFont> {
-	// Decompress WOFF2 before parsing — opentype.js requires uncompressed data
-	const raw = isWoff2(buffer) ? await decompressWoff2(buffer) : buffer
+export async function parseFont(buffer: ArrayBuffer, woff2Decompressor?: Woff2Decompressor): Promise<GlyphFont> {
+	let raw = buffer
+	if (isWoff2(buffer)) {
+		if (!woff2Decompressor) {
+			throw new Error(
+				'[glyphshaper] WOFF2 input requires a woff2Decompressor. ' +
+				'Pass one to parseFont(), or convert the font to TTF / OTF / WOFF first.'
+			)
+		}
+		raw = await woff2Decompressor(buffer)
+	}
 
 	// Dynamic import keeps opentype.js out of the critical path and SSR-safe
 	const { parse } = await import('opentype.js')

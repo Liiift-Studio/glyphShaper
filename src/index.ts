@@ -4,7 +4,7 @@
 export type { PathCommand, GlyphShaperOptions, CmdM, CmdL, CmdC, CmdQ, CmdZ } from './core/types'
 
 // Core functions
-export type { GlyphFont } from './core/forge'
+export type { GlyphFont, Woff2Decompressor } from './core/forge'
 export {
 	parseFont,
 	getGlyphCommands,

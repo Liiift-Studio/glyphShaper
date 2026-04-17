@@ -18,6 +18,13 @@ const ACCEPT = ".ttf,.otf,.woff,.woff2"
 /** URL of the default font bundled with the site */
 const DEFAULT_FONT_URL = "/fonts/Merriweather.woff2"
 
+/** Server-side WOFF2 decompressor — keeps wawoff2 out of the browser bundle */
+async function decompressWoff2(buffer: ArrayBuffer): Promise<ArrayBuffer> {
+	const res = await fetch("/api/decompress-woff2", { method: "POST", body: buffer })
+	if (!res.ok) throw new Error(`WOFF2 decompression failed (${res.status})`)
+	return res.arrayBuffer()
+}
+
 /** Display name shown in the upload zone for the default font */
 const DEFAULT_FONT_NAME = "Merriweather"
 
@@ -93,7 +100,7 @@ export default function Demo() {
 					if (animPct > 83) setLoadStage("Parsing glyphs")
 				}, 80)
 
-				const parsed = await parseFont(buffer).finally(() => clearInterval(animTimer))
+				const parsed = await parseFont(buffer, decompressWoff2).finally(() => clearInterval(animTimer))
 				if (cancelled) return
 
 				// Stage 3 — serialise to Blob and inject @font-face
@@ -106,8 +113,8 @@ export default function Demo() {
 				setLoadPct(100)
 				setFont(parsed)
 				setFileName(DEFAULT_FONT_NAME)
-			} catch {
-				// Silently fail — user can still upload their own font
+			} catch (err) {
+				if (!cancelled) setError(err instanceof Error ? err.message : "Could not load default font.")
 			} finally {
 				if (!cancelled) {
 					setLoading(false)
@@ -133,7 +140,7 @@ export default function Demo() {
 			setLoadPct(30)
 			const buffer = await file.arrayBuffer()
 			setLoadPct(55)
-			const parsed = await parseFont(buffer)
+			const parsed = await parseFont(buffer, decompressWoff2)
 
 			// Apply the font immediately so the preview text renders with it
 			setLoadStage("Applying to page")
