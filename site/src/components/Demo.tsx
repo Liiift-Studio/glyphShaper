@@ -16,7 +16,7 @@ const SAMPLE = "Typography"
 const ACCEPT = ".ttf,.otf,.woff,.woff2"
 
 /** URL of the default font bundled with the site */
-const DEFAULT_FONT_URL = "/fonts/Merriweather.woff2"
+const DEFAULT_FONT_URL = "/fonts/inter-300.woff"
 
 /** Server-side WOFF2 decompressor — keeps wawoff2 out of the browser bundle */
 async function decompressWoff2(buffer: ArrayBuffer): Promise<ArrayBuffer> {
@@ -26,10 +26,10 @@ async function decompressWoff2(buffer: ArrayBuffer): Promise<ArrayBuffer> {
 }
 
 /** Display name shown in the upload zone for the default font */
-const DEFAULT_FONT_NAME = "Merriweather"
+const DEFAULT_FONT_NAME = "Inter"
 
 /** Loading stages shown in the progress bar */
-const LOAD_STAGES = ["Fetching font", "Decoding WOFF2", "Parsing glyphs", "Applying to page"] as const
+const LOAD_STAGES = ["Fetching font", "Parsing glyphs", "Applying to page"] as const
 type LoadStage = typeof LOAD_STAGES[number] | null
 
 export default function Demo() {
@@ -86,10 +86,10 @@ export default function Demo() {
 				for (const chunk of chunks) { merged.set(chunk, offset); offset += chunk.length }
 				const buffer = merged.buffer
 
-				// Stage 2 — decode WOFF2 + parse glyphs (opentype.js, async).
+				// Stage 2 — parse glyphs (opentype.js, async).
 				// parseFont has no progress callbacks, so animate the bar toward 85%
 				// with an exponential ease that slows as it approaches the ceiling.
-				setLoadStage("Decoding WOFF2")
+				setLoadStage("Parsing glyphs")
 				setLoadPct(42)
 				await new Promise(r => setTimeout(r, 0)) // yield to UI
 
@@ -97,7 +97,6 @@ export default function Demo() {
 				const animTimer = setInterval(() => {
 					animPct = animPct + (85 - animPct) * 0.06
 					setLoadPct(Math.round(animPct))
-					if (animPct > 83) setLoadStage("Parsing glyphs")
 				}, 80)
 
 				const parsed = await parseFont(buffer, decompressWoff2).finally(() => clearInterval(animTimer))
@@ -218,7 +217,7 @@ export default function Demo() {
 							style={{ width: `${loadPct}%`, background: "rgba(255,255,255,0.4)" }}
 						/>
 					</div>
-					<p className="text-xs opacity-20">Merriweather · WOFF2 · 499 KB</p>
+					<p className="text-xs opacity-20">Inter · WOFF · 22 KB</p>
 				</div>
 			)}
 
@@ -256,7 +255,7 @@ export default function Demo() {
 			) : null}
 
 			<p className="text-xs opacity-50 italic" style={{ lineHeight: "1.8" }}>
-				Loaded with Merriweather by default — swap it for any TTF, OTF, WOFF, or WOFF2 above.
+				Loaded with Inter by default — swap it for any TTF, OTF, WOFF, or WOFF2 above.
 				Click a character tile to open its bezier path editor.
 				Drag anchors (filled circles) or handles (outlined circles) to reshape the glyph.
 				Hit <strong>Apply to page</strong> and every instance — headings, body text,

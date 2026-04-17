@@ -3,6 +3,8 @@ import CopyInstall from "@/components/CopyInstall"
 import CodeBlock from "@/components/CodeBlock"
 import ToolDirectory from "@/components/ToolDirectory"
 import { version } from "../../../package.json"
+import { version as siteVersion } from "../../package.json"
+import SiteFooter from "../components/SiteFooter"
 
 export default function Home() {
 	return (
@@ -12,7 +14,7 @@ export default function Home() {
 			<section className="w-full max-w-2xl lg:max-w-5xl flex flex-col gap-6">
 				<div className="flex flex-col gap-2">
 					<p className="text-xs uppercase tracking-widest opacity-50">glyphshaper</p>
-					<h1 className="text-4xl lg:text-8xl xl:text-9xl" style={{ lineHeight: "1.05em", letterSpacing: "-0.02em" }}>
+					<h1 className="text-4xl lg:text-8xl xl:text-9xl" style={{ lineHeight: "1.05em", letterSpacing: "-0.02em", fontFamily: "GlyphShaperDemo, sans-serif" }}>
 						Edit a glyph.<br />
 						<span style={{ opacity: 0.5, fontStyle: "italic" }}>Watch it everywhere.</span>
 					</h1>
@@ -181,15 +183,7 @@ const url = applyFontBlob('MyFont', fontToBlob(font))
 				</div>
 			</section>
 
-			{/* Footer */}
-			<footer className="w-full max-w-2xl lg:max-w-5xl flex flex-col gap-6 pt-8 border-t border-white/10 text-xs">
-				<ToolDirectory current="glyphShaper" />
-				<hr className="border-white/10" />
-				<div className="grid grid-cols-2 sm:grid-cols-4 gap-x-8 opacity-50">
-					<a href="https://liiift.studio" className="hover:opacity-100 transition-opacity">liiift.studio</a>
-					<span className="sm:col-start-4">glyphShaper v{version}</span>
-				</div>
-			</footer>
+			<SiteFooter current="glyphShaper" npmVersion={version} siteVersion={siteVersion} />
 
 		</main>
 	)
