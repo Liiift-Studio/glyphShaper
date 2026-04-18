@@ -74,7 +74,18 @@ export async function parseFont(buffer: ArrayBuffer, woff2Decompressor?: Woff2De
 
 	// Dynamic import keeps opentype.js out of the critical path and SSR-safe
 	const { parse } = await import('opentype.js')
-	const font = parse(raw)
+	let font
+	try {
+		font = parse(raw)
+	} catch (err) {
+		if (err instanceof Error && /not yet supported|lookup type/i.test(err.message)) {
+			throw new Error(
+				'This font uses an OpenType feature not yet supported by opentype.js ' +
+				`(${err.message}). Try a different font — Inter, Roboto, and most system fonts work well.`
+			)
+		}
+		throw err
+	}
 	return { _font: font }
 }
 
