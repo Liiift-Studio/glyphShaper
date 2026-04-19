@@ -14,7 +14,7 @@ export default function Home() {
 			<section className="w-full max-w-2xl lg:max-w-5xl flex flex-col gap-6">
 				<div className="flex flex-col gap-2">
 					<p className="text-xs uppercase tracking-widest opacity-50">glyphshaper</p>
-					<h1 className="text-4xl lg:text-8xl xl:text-9xl" style={{ lineHeight: "1.05em", letterSpacing: "-0.02em", fontFamily: "GlyphShaperDemo, sans-serif" }}>
+					<h1 className="text-4xl lg:text-8xl xl:text-9xl" style={{ lineHeight: "1.05em", letterSpacing: "-0.02em", fontFamily: "var(--font-merriweather), serif", fontWeight: 700 }}>
 						Edit a glyph.<br />
 						<span style={{ opacity: 0.5, fontStyle: "italic" }}>Watch it everywhere.</span>
 					</h1>
