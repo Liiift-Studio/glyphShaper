@@ -86,6 +86,20 @@ export async function parseFont(buffer: ArrayBuffer, woff2Decompressor?: Woff2De
 		}
 		throw err
 	}
+
+	// GSUB (glyph substitution) and GPOS (glyph positioning) tables use features
+	// that opentype.js 1.x cannot re-serialise (e.g. lookup type 6 format 2).
+	// We only need raw path commands for glyph editing, so drop these tables before
+	// they cause toArrayBuffer() to throw. The browser handles shaping on its own.
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const t = (font as any).tables
+	delete t.gsub
+	delete t.gpos
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	;(font as any).substitution = null
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	;(font as any).position = null
+
 	return { _font: font }
 }
 
