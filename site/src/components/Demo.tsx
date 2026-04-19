@@ -128,17 +128,17 @@ function AdjSlider({ label, value, min, max, onChange }: {
 // ─── Tooltip ─────────────────────────────────────────────────────────────────
 
 const TOOLTIP_W = 308
+const APPROX_TOOLTIP_H = 252 // used for initial above/below placement
 
-function getTooltipStyle(anchor: DOMRect, tooltipH: number): React.CSSProperties {
-	const gap = 10
-	const midX   = anchor.left + anchor.width / 2
-	const left   = Math.max(8, Math.min(midX - TOOLTIP_W / 2, window.innerWidth - TOOLTIP_W - 8))
-	// Prefer above; flip below if not enough room
-	const spaceAbove = anchor.top - gap
-	if (spaceAbove >= Math.min(tooltipH, 120)) {
-		return { position: "fixed", left, bottom: window.innerHeight - anchor.top + gap, width: TOOLTIP_W, zIndex: 200 }
+/** Compute initial top-left position anchored to a character's rect */
+function getInitialPos(anchor: DOMRect): { left: number; top: number } {
+	const GAP  = 12
+	const midX = anchor.left + anchor.width / 2
+	const left = Math.max(8, Math.min(midX - TOOLTIP_W / 2, window.innerWidth - TOOLTIP_W - 8))
+	if (anchor.top - GAP - APPROX_TOOLTIP_H >= 8) {
+		return { left, top: anchor.top - GAP - APPROX_TOOLTIP_H }
 	}
-	return { position: "fixed", left, top: anchor.bottom + gap, width: TOOLTIP_W, zIndex: 200 }
+	return { left, top: Math.min(anchor.bottom + GAP, window.innerHeight - APPROX_TOOLTIP_H - 8) }
 }
 
 function Tooltip({
@@ -164,18 +164,70 @@ function Tooltip({
 	onClose: () => void
 }) {
 	const [tab, setTab] = useState<"adjust" | "path">("adjust")
-	const tooltipRef = useRef<HTMLDivElement>(null)
-	const [tooltipH, setTooltipH] = useState(260)
 
+	// ── Dark / light mode ──────────────────────────────────────────────────────
+	const [dark, setDark] = useState(true)
 	useEffect(() => {
-		if (tooltipRef.current) setTooltipH(tooltipRef.current.offsetHeight)
-	})
+		const mq = window.matchMedia("(prefers-color-scheme: dark)")
+		setDark(mq.matches)
+		const onChange = (e: MediaQueryListEvent) => setDark(e.matches)
+		mq.addEventListener("change", onChange)
+		return () => mq.removeEventListener("change", onChange)
+	}, [])
 
-	// Cmd+Z / Ctrl+Z in path tab
+	const theme = {
+		bg:          dark ? "rgba(10,10,12,0.97)"     : "rgba(250,250,252,0.97)",
+		border:      dark ? "rgba(255,255,255,0.1)"   : "rgba(0,0,0,0.1)",
+		divider:     dark ? "rgba(255,255,255,0.07)"  : "rgba(0,0,0,0.07)",
+		shadow:      dark ? "0 8px 32px rgba(0,0,0,0.55)" : "0 8px 32px rgba(0,0,0,0.14)",
+		text:        dark ? "rgba(255,255,255,0.85)"  : "rgba(15,15,15,0.9)",
+		dim:         dark ? "rgba(255,255,255,0.35)"  : "rgba(0,0,0,0.4)",
+		accent:      dark ? "rgba(212,184,240,1)"     : "rgba(105,55,185,1)",
+		accentBg:    dark ? "rgba(212,184,240,0.12)"  : "rgba(105,55,185,0.09)",
+		tabBorder:   dark ? "rgba(255,255,255,0.18)"  : "rgba(0,0,0,0.15)",
+		tabInactive: dark ? "rgba(255,255,255,0.38)"  : "rgba(0,0,0,0.38)",
+		btnBorder:   dark ? "rgba(255,255,255,0.2)"   : "rgba(0,0,0,0.15)",
+		btnPrimBorder: dark ? "rgba(212,184,240,0.6)" : "rgba(105,55,185,0.5)",
+		btnPrimBg:   dark ? "rgba(212,184,240,0.1)"   : "rgba(105,55,185,0.08)",
+	}
+
+	// ── Drag ──────────────────────────────────────────────────────────────────
+	const [initPos]     = useState(() => getInitialPos(anchor))
+	const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
+	const isDragging    = useRef(false)
+	const dragOrigin    = useRef({ mx: 0, my: 0, ox: 0, oy: 0 })
+
+	function onHeaderDown(e: React.PointerEvent<HTMLDivElement>) {
+		// Don't drag when clicking a button inside the header
+		if ((e.target as HTMLElement).closest("button")) return
+		isDragging.current = true
+		dragOrigin.current = { mx: e.clientX, my: e.clientY, ox: dragOffset.x, oy: dragOffset.y }
+		e.currentTarget.setPointerCapture(e.pointerId)
+		document.body.style.cursor = "grabbing"
+		document.body.style.userSelect = "none"
+	}
+
+	function onHeaderMove(e: React.PointerEvent<HTMLDivElement>) {
+		if (!isDragging.current) return
+		setDragOffset({
+			x: dragOrigin.current.ox + e.clientX - dragOrigin.current.mx,
+			y: dragOrigin.current.oy + e.clientY - dragOrigin.current.my,
+		})
+	}
+
+	function onHeaderUp() {
+		if (!isDragging.current) return
+		isDragging.current = false
+		document.body.style.cursor = ""
+		document.body.style.userSelect = ""
+	}
+
+	const left = initPos.left + dragOffset.x
+	const top  = initPos.top  + dragOffset.y
+
+	// ── Keyboard shortcut ─────────────────────────────────────────────────────
 	useEffect(() => {
 		if (tab !== "path") return
-		const histRef = { current: bezierHistory }
-		histRef.current = bezierHistory
 		function onKey(e: KeyboardEvent) {
 			if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === "z") {
 				e.preventDefault()
@@ -184,34 +236,58 @@ function Tooltip({
 		}
 		window.addEventListener("keydown", onKey)
 		return () => window.removeEventListener("keydown", onKey)
-	}, [tab, bezierHistory, onBezierUndo])
+	}, [tab, onBezierUndo])
+
+	// Clean up body cursor if tooltip unmounts while dragging
+	useEffect(() => () => {
+		document.body.style.cursor = ""
+		document.body.style.userSelect = ""
+	}, [])
 
 	const canUndo = bezierHistory.length > 0
-	const style = getTooltipStyle(anchor, tooltipH)
+
+	function btn(primary: boolean, disabled = false): React.CSSProperties {
+		return {
+			fontSize: 11, padding: "4px 10px", borderRadius: 20,
+			border: primary ? `1px solid ${theme.btnPrimBorder}` : `1px solid ${theme.btnBorder}`,
+			background: primary ? theme.btnPrimBg : "transparent",
+			color: theme.text,
+			opacity: disabled ? 0.25 : 1,
+			cursor: disabled ? "default" : "pointer",
+			transition: "opacity 0.12s",
+		}
+	}
 
 	return (
 		<div
-			ref={tooltipRef}
 			style={{
-				...style,
-				background: "rgba(12,12,14,0.97)",
-				border: "1px solid rgba(255,255,255,0.1)",
+				position: "fixed", left, top, width: TOOLTIP_W, zIndex: 200,
+				background: theme.bg,
+				border: `1px solid ${theme.border}`,
 				borderRadius: 10,
-				boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+				boxShadow: theme.shadow,
 				display: "flex",
 				flexDirection: "column",
 				overflow: "hidden",
+				color: theme.text,
 			}}
 		>
-			{/* Header */}
-			<div style={{
-				display: "flex",
-				alignItems: "center",
-				gap: 8,
-				padding: "10px 14px",
-				borderBottom: "1px solid rgba(255,255,255,0.07)",
-			}}>
-				<span style={{ fontFamily: DEMO_FAMILY, fontSize: 18, lineHeight: 1, color: "rgba(212,184,240,1)", minWidth: 20 }}>
+			{/* Draggable header */}
+			<div
+				onPointerDown={onHeaderDown}
+				onPointerMove={onHeaderMove}
+				onPointerUp={onHeaderUp}
+				style={{
+					display: "flex",
+					alignItems: "center",
+					gap: 8,
+					padding: "10px 14px",
+					borderBottom: `1px solid ${theme.divider}`,
+					cursor: "grab",
+					userSelect: "none",
+				}}
+			>
+				<span style={{ fontFamily: DEMO_FAMILY, fontSize: 18, lineHeight: 1, color: theme.accent, minWidth: 20 }}>
 					{char}
 				</span>
 				<div style={{ display: "flex", gap: 4, flex: 1 }}>
@@ -220,12 +296,10 @@ function Tooltip({
 							key={t}
 							onClick={() => setTab(t)}
 							style={{
-								fontSize: 11,
-								padding: "3px 10px",
-								borderRadius: 20,
-								border: "1px solid rgba(255,255,255,0.2)",
-								background: tab === t ? "rgba(212,184,240,0.12)" : "transparent",
-								color: tab === t ? "rgba(212,184,240,1)" : "rgba(255,255,255,0.4)",
+								fontSize: 11, padding: "3px 10px", borderRadius: 20,
+								border: `1px solid ${tab === t ? theme.accent : theme.tabBorder}`,
+								background: tab === t ? theme.accentBg : "transparent",
+								color: tab === t ? theme.accent : theme.tabInactive,
 								cursor: "pointer",
 								transition: "background 0.12s, color 0.12s",
 								textTransform: "capitalize",
@@ -239,13 +313,9 @@ function Tooltip({
 					onClick={onClose}
 					aria-label="Close"
 					style={{
-						fontSize: 16,
-						lineHeight: 1,
-						opacity: 0.35,
-						cursor: "pointer",
-						background: "transparent",
-						border: "none",
-						color: "inherit",
+						fontSize: 16, lineHeight: 1,
+						color: theme.dim, cursor: "pointer",
+						background: "transparent", border: "none",
 						padding: "2px 4px",
 					}}
 				>
@@ -263,7 +333,7 @@ function Tooltip({
 						<AdjSlider label="Right thickness" value={charAdj.rightSide} min={-50} max={100} onChange={v => onCharAdjChange("rightSide", v)} />
 					</div>
 					<div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
-						<button onClick={onResetCharAdj} style={{ fontSize: 11, opacity: 0.35, cursor: "pointer", background: "transparent", border: "none", color: "inherit" }}>
+						<button onClick={onResetCharAdj} style={{ fontSize: 11, color: theme.dim, cursor: "pointer", background: "transparent", border: "none" }}>
 							Reset
 						</button>
 					</div>
@@ -274,7 +344,7 @@ function Tooltip({
 			{tab === "path" && (
 				<div>
 					<div style={{ padding: "6px 10px 0" }}>
-						<p style={{ fontSize: 10, opacity: 0.35, fontFamily: "sans-serif" }}>
+						<p style={{ fontSize: 10, color: theme.dim, fontFamily: "sans-serif" }}>
 							Drag filled circles (anchors) or outlined (handles) to reshape
 						</p>
 					</div>
@@ -285,34 +355,15 @@ function Tooltip({
 						onChange={onBezierChange}
 						onDragStart={onBezierDragStart}
 					/>
-					<div style={{
-						display: "flex",
-						gap: 6,
-						padding: "8px 10px 10px",
-						borderTop: "1px solid rgba(255,255,255,0.07)",
-					}}>
-						<button onClick={onBezierCancel} style={btnStyle(false)}>Cancel</button>
-						<button onClick={onBezierUndo} disabled={!canUndo} style={btnStyle(false, !canUndo)}>Undo</button>
-						<button onClick={onBezierApply} style={{ ...btnStyle(true), marginLeft: "auto" }}>Apply to page</button>
+					<div style={{ display: "flex", gap: 6, padding: "8px 10px 10px", borderTop: `1px solid ${theme.divider}` }}>
+						<button onClick={onBezierCancel} style={btn(false)}>Cancel</button>
+						<button onClick={onBezierUndo} disabled={!canUndo} style={btn(false, !canUndo)}>Undo</button>
+						<button onClick={onBezierApply} style={{ ...btn(true), marginLeft: "auto" }}>Apply to page</button>
 					</div>
 				</div>
 			)}
 		</div>
 	)
-}
-
-function btnStyle(primary: boolean, disabled = false): React.CSSProperties {
-	return {
-		fontSize: 11,
-		padding: "4px 10px",
-		borderRadius: 20,
-		border: primary ? "1px solid rgba(212,184,240,0.6)" : "1px solid rgba(255,255,255,0.2)",
-		background: primary ? "rgba(212,184,240,0.1)" : "transparent",
-		color: "inherit",
-		opacity: disabled ? 0.25 : 0.8,
-		cursor: disabled ? "default" : "pointer",
-		transition: "opacity 0.12s",
-	}
 }
 
 // ─── Clickable text ───────────────────────────────────────────────────────────
@@ -705,6 +756,7 @@ export default function Demo() {
 			{/* Floating tooltip — rendered in a portal via fixed position */}
 			{selectedChar && anchorRect && font && (
 				<Tooltip
+					key={selectedChar}
 					char={selectedChar}
 					anchor={anchorRect}
 					font={font}
