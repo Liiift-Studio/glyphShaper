@@ -157,6 +157,20 @@ function uniquePrintableChars(text: string): string[] {
 
 // ─── SVG glyph editor ─────────────────────────────────────────────────────────
 
+/** Props for the standalone GlyphSvgEditor */
+export interface GlyphSvgEditorProps {
+	/** Current path commands to render and edit */
+	commands: PathCommand[]
+	/** Parsed font handle — used to read metrics (ascender, advance width, etc.) */
+	font: GlyphFont
+	/** Character being edited — used only for metrics lookup, not path data */
+	char: string
+	/** Called with updated commands after each pointer move during a drag */
+	onChange: (commands: PathCommand[]) => void
+	/** Called with the pre-drag snapshot on pointerdown — use this for undo */
+	onDragStart: (snapshot: PathCommand[]) => void
+}
+
 /**
  * Interactive SVG panel showing the glyph outline with draggable bezier control
  * points.
@@ -168,20 +182,13 @@ function uniquePrintableChars(text: string): string[] {
  * - `onDragStart` fires once per drag (on pointerdown) so the parent can
  *   snapshot the current commands for undo before any movement happens.
  */
-function GlyphSvgEditor({
+export function GlyphSvgEditor({
 	commands,
 	font,
 	char,
 	onChange,
 	onDragStart,
-}: {
-	commands: PathCommand[]
-	font: GlyphFont
-	char: string
-	onChange: (commands: PathCommand[]) => void
-	/** Called with the pre-drag snapshot when a drag starts — used for undo */
-	onDragStart: (snapshot: PathCommand[]) => void
-}) {
+}: GlyphSvgEditorProps) {
 	const svgRef = useRef<SVGSVGElement>(null)
 	const dragging = useRef<{ cmdIdx: number; field: 'xy' | 'x1y1' | 'x2y2' } | null>(null)
 

@@ -17,4 +17,5 @@ export {
 
 // React
 export { useGlyphFont } from './react/useGlyphFont'
-export { GlyphShaperEditor } from './react/GlyphShaperEditor'
+export { GlyphShaperEditor, GlyphSvgEditor } from './react/GlyphShaperEditor'
+export type { GlyphShaperEditorProps, GlyphSvgEditorProps } from './react/GlyphShaperEditor'

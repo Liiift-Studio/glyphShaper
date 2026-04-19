@@ -2,8 +2,11 @@
 
 // Interactive demo — loads Inter by default; file upload replaces it
 import { useState, useRef, useCallback, useEffect } from "react"
-import { parseFont, applyFontBlob, fontToBlob, getGlyphCommands, setGlyphCommands } from "@liiift-studio/glyphshaper"
-import { GlyphShaperEditor } from "@liiift-studio/glyphshaper"
+import {
+	parseFont, applyFontBlob, fontToBlob,
+	getGlyphCommands, setGlyphCommands,
+	GlyphSvgEditor,
+} from "@liiift-studio/glyphshaper"
 import type { GlyphFont, PathCommand } from "@liiift-studio/glyphshaper"
 
 /** CSS font-family name used for the demo override rule */
@@ -18,14 +21,12 @@ const DEFAULT_FONT_URL = "/fonts/inter-300.woff"
 /** Display name shown in the upload zone for the default font */
 const DEFAULT_FONT_NAME = "Inter"
 
-/** Demo text blocks shown in the preview */
-const DISPLAY_TEXT  = "Sphinx of black quartz, judge my vow."
-const HEADING_TEXT  = "Typography lives in its details."
-const BODY_TEXT     = "The quick brown fox jumps over the lazy dog. Five boxing wizards jump quickly."
-const CAPTION_TEXT  = "Pack my box with five dozen liquor jugs. How vexingly quick daft zebras jump!"
+/** Two editorial paragraphs shown in the demo */
+const PARA_1 = "Every typeface carries the fingerprints of its maker — the exact weight a stroke achieves before it stops, the angle at which a curve resolves, the precise distance between letters that lets the eye rest. These decisions accumulate invisibly. A good font is one where the reader never notices the design, only the words."
+const PARA_2 = "Sphinx of black quartz, judge my vow. The quick brown fox jumps over the lazy dog, and somewhere in that familiar sentence, the full alphabet completes itself. Five boxing wizards jump quickly; pack my box with five dozen liquor jugs."
 
-/** All characters visible in the demo — these get snapshotted for global adjustments */
-const ALL_DEMO_TEXT = DISPLAY_TEXT + HEADING_TEXT + BODY_TEXT + CAPTION_TEXT
+/** Every unique character across both paragraphs — snapshotted at parse time */
+const ALL_DEMO_TEXT = PARA_1 + PARA_2
 
 /** Server-side WOFF2 decompressor — keeps wawoff2 out of the browser bundle */
 async function decompressWoff2(buffer: ArrayBuffer): Promise<ArrayBuffer> {
@@ -41,21 +42,16 @@ type LoadStage = typeof LOAD_STAGES[number] | null
 // ─── Adjustments ─────────────────────────────────────────────────────────────
 
 type Adjustments = {
-	/** Uniform horizontal scale (%) around the glyph's own centre */
-	width: number
-	/** Extra scale applied only to the left half of the glyph (%) */
-	leftSide: number
-	/** Extra scale applied only to the right half of the glyph (%) */
-	rightSide: number
-	/** Scale Bézier handle offsets from their nearest anchor (%) */
-	shoulders: number
+	width: number      // horizontal scale (%) around glyph centre
+	leftSide: number   // extra scale for left-half points (%)
+	rightSide: number  // extra scale for right-half points (%)
+	shoulders: number  // scale Bézier handle offsets from their anchors (%)
 }
 
 const ADJ_ZERO: Adjustments = { width: 0, leftSide: 0, rightSide: 0, shoulders: 0 }
 
 type GlyphSnapshot = { cmds: PathCommand[]; cx: number }
 
-/** Compute the horizontal midpoint of a glyph's bounding box */
 function computeCx(cmds: PathCommand[]): number {
 	let minX = Infinity, maxX = -Infinity
 	for (const cmd of cmds) {
@@ -66,21 +62,14 @@ function computeCx(cmds: PathCommand[]): number {
 	return minX === Infinity ? 0 : (minX + maxX) / 2
 }
 
-/** Combine global + per-character adjustments additively */
-function combineAdj(global: Adjustments, local: Adjustments): Adjustments {
-	return {
-		width:     global.width     + local.width,
-		leftSide:  global.leftSide  + local.leftSide,
-		rightSide: global.rightSide + local.rightSide,
-		shoulders: global.shoulders + local.shoulders,
-	}
+function combineAdj(g: Adjustments, c: Adjustments): Adjustments {
+	return { width: g.width + c.width, leftSide: g.leftSide + c.leftSide, rightSide: g.rightSide + c.rightSide, shoulders: g.shoulders + c.shoulders }
 }
 
 function isZeroAdj(a: Adjustments): boolean {
 	return a.width === 0 && a.leftSide === 0 && a.rightSide === 0 && a.shoulders === 0
 }
 
-/** Apply width + left/right thickness to a single x coordinate */
 function adjX(x: number, cx: number, width: number, leftSide: number, rightSide: number): number {
 	let nx = cx + (x - cx) * (1 + width / 100)
 	const d = nx - cx
@@ -89,21 +78,14 @@ function adjX(x: number, cx: number, width: number, leftSide: number, rightSide:
 	return nx
 }
 
-/** Rebuild path commands with all four adjustments applied */
 function applyTransform(cmds: PathCommand[], cx: number, adj: Adjustments): PathCommand[] {
 	const { width, leftSide, rightSide, shoulders } = adj
 	const tx = (x: number) => adjX(x, cx, width, leftSide, rightSide)
 	let px = 0, py = 0
 	return cmds.map(cmd => {
 		if (cmd.type === "Z") return { type: "Z" }
-		if (cmd.type === "M") {
-			const nx = tx(cmd.x); px = nx; py = cmd.y
-			return { type: "M", x: nx, y: cmd.y }
-		}
-		if (cmd.type === "L") {
-			const nx = tx(cmd.x); px = nx; py = cmd.y
-			return { type: "L", x: nx, y: cmd.y }
-		}
+		if (cmd.type === "M") { const nx = tx(cmd.x); px = nx; py = cmd.y; return { type: "M", x: nx, y: cmd.y } }
+		if (cmd.type === "L") { const nx = tx(cmd.x); px = nx; py = cmd.y; return { type: "L", x: nx, y: cmd.y } }
 		if (cmd.type === "Q") {
 			const nx  = tx(cmd.x)
 			const nx1 = px + (tx(cmd.x1) - px) * (1 + shoulders / 100)
@@ -124,17 +106,221 @@ function applyTransform(cmds: PathCommand[], cx: number, adj: Adjustments): Path
 	})
 }
 
-// ─── Clickable text renderer ──────────────────────────────────────────────────
+// ─── Slider sub-component ────────────────────────────────────────────────────
 
-function ClickableText({
-	text,
-	selectedChar,
-	onSelect,
-	style,
+function AdjSlider({ label, value, min, max, onChange }: {
+	label: string; value: number; min: number; max: number; onChange: (v: number) => void
+}) {
+	return (
+		<div className="flex flex-col gap-1">
+			<div className="flex justify-between items-baseline">
+				<label className="text-xs opacity-50">{label}</label>
+				<span className="text-xs opacity-30 font-mono tabular-nums" style={{ minWidth: "2.5rem", textAlign: "right" }}>
+					{value > 0 ? `+${value}` : value}
+				</span>
+			</div>
+			<input type="range" min={min} max={max} step={1} value={value} aria-label={label}
+				onChange={e => onChange(Number(e.target.value))} className="w-full" />
+		</div>
+	)
+}
+
+// ─── Tooltip ─────────────────────────────────────────────────────────────────
+
+const TOOLTIP_W = 308
+
+function getTooltipStyle(anchor: DOMRect, tooltipH: number): React.CSSProperties {
+	const gap = 10
+	const midX   = anchor.left + anchor.width / 2
+	const left   = Math.max(8, Math.min(midX - TOOLTIP_W / 2, window.innerWidth - TOOLTIP_W - 8))
+	// Prefer above; flip below if not enough room
+	const spaceAbove = anchor.top - gap
+	if (spaceAbove >= Math.min(tooltipH, 120)) {
+		return { position: "fixed", left, bottom: window.innerHeight - anchor.top + gap, width: TOOLTIP_W, zIndex: 200 }
+	}
+	return { position: "fixed", left, top: anchor.bottom + gap, width: TOOLTIP_W, zIndex: 200 }
+}
+
+function Tooltip({
+	char, anchor, font,
+	charAdj, onCharAdjChange, onResetCharAdj,
+	bezierCmds, onBezierChange, onBezierDragStart,
+	bezierHistory, onBezierUndo, onBezierApply, onBezierCancel,
+	onClose,
 }: {
+	char: string
+	anchor: DOMRect
+	font: GlyphFont
+	charAdj: Adjustments
+	onCharAdjChange: (key: keyof Adjustments, value: number) => void
+	onResetCharAdj: () => void
+	bezierCmds: PathCommand[]
+	onBezierChange: (cmds: PathCommand[]) => void
+	onBezierDragStart: (snapshot: PathCommand[]) => void
+	bezierHistory: PathCommand[][]
+	onBezierUndo: () => void
+	onBezierApply: () => void
+	onBezierCancel: () => void
+	onClose: () => void
+}) {
+	const [tab, setTab] = useState<"adjust" | "path">("adjust")
+	const tooltipRef = useRef<HTMLDivElement>(null)
+	const [tooltipH, setTooltipH] = useState(260)
+
+	useEffect(() => {
+		if (tooltipRef.current) setTooltipH(tooltipRef.current.offsetHeight)
+	})
+
+	// Cmd+Z / Ctrl+Z in path tab
+	useEffect(() => {
+		if (tab !== "path") return
+		const histRef = { current: bezierHistory }
+		histRef.current = bezierHistory
+		function onKey(e: KeyboardEvent) {
+			if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === "z") {
+				e.preventDefault()
+				onBezierUndo()
+			}
+		}
+		window.addEventListener("keydown", onKey)
+		return () => window.removeEventListener("keydown", onKey)
+	}, [tab, bezierHistory, onBezierUndo])
+
+	const canUndo = bezierHistory.length > 0
+	const style = getTooltipStyle(anchor, tooltipH)
+
+	return (
+		<div
+			ref={tooltipRef}
+			style={{
+				...style,
+				background: "rgba(12,12,14,0.97)",
+				border: "1px solid rgba(255,255,255,0.1)",
+				borderRadius: 10,
+				boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+				display: "flex",
+				flexDirection: "column",
+				overflow: "hidden",
+			}}
+		>
+			{/* Header */}
+			<div style={{
+				display: "flex",
+				alignItems: "center",
+				gap: 8,
+				padding: "10px 14px",
+				borderBottom: "1px solid rgba(255,255,255,0.07)",
+			}}>
+				<span style={{ fontFamily: DEMO_FAMILY, fontSize: 18, lineHeight: 1, color: "rgba(212,184,240,1)", minWidth: 20 }}>
+					{char}
+				</span>
+				<div style={{ display: "flex", gap: 4, flex: 1 }}>
+					{(["adjust", "path"] as const).map(t => (
+						<button
+							key={t}
+							onClick={() => setTab(t)}
+							style={{
+								fontSize: 11,
+								padding: "3px 10px",
+								borderRadius: 20,
+								border: "1px solid rgba(255,255,255,0.2)",
+								background: tab === t ? "rgba(212,184,240,0.12)" : "transparent",
+								color: tab === t ? "rgba(212,184,240,1)" : "rgba(255,255,255,0.4)",
+								cursor: "pointer",
+								transition: "background 0.12s, color 0.12s",
+								textTransform: "capitalize",
+							}}
+						>
+							{t}
+						</button>
+					))}
+				</div>
+				<button
+					onClick={onClose}
+					aria-label="Close"
+					style={{
+						fontSize: 16,
+						lineHeight: 1,
+						opacity: 0.35,
+						cursor: "pointer",
+						background: "transparent",
+						border: "none",
+						color: "inherit",
+						padding: "2px 4px",
+					}}
+				>
+					×
+				</button>
+			</div>
+
+			{/* Adjust tab */}
+			{tab === "adjust" && (
+				<div style={{ padding: "14px 14px 12px" }}>
+					<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+						<AdjSlider label="Width"           value={charAdj.width}     min={-50} max={100} onChange={v => onCharAdjChange("width",     v)} />
+						<AdjSlider label="Shoulders"       value={charAdj.shoulders} min={-80} max={100} onChange={v => onCharAdjChange("shoulders", v)} />
+						<AdjSlider label="Left thickness"  value={charAdj.leftSide}  min={-50} max={100} onChange={v => onCharAdjChange("leftSide",  v)} />
+						<AdjSlider label="Right thickness" value={charAdj.rightSide} min={-50} max={100} onChange={v => onCharAdjChange("rightSide", v)} />
+					</div>
+					<div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
+						<button onClick={onResetCharAdj} style={{ fontSize: 11, opacity: 0.35, cursor: "pointer", background: "transparent", border: "none", color: "inherit" }}>
+							Reset
+						</button>
+					</div>
+				</div>
+			)}
+
+			{/* Path tab */}
+			{tab === "path" && (
+				<div>
+					<div style={{ padding: "6px 10px 0" }}>
+						<p style={{ fontSize: 10, opacity: 0.35, fontFamily: "sans-serif" }}>
+							Drag filled circles (anchors) or outlined (handles) to reshape
+						</p>
+					</div>
+					<GlyphSvgEditor
+						commands={bezierCmds}
+						font={font}
+						char={char}
+						onChange={onBezierChange}
+						onDragStart={onBezierDragStart}
+					/>
+					<div style={{
+						display: "flex",
+						gap: 6,
+						padding: "8px 10px 10px",
+						borderTop: "1px solid rgba(255,255,255,0.07)",
+					}}>
+						<button onClick={onBezierCancel} style={btnStyle(false)}>Cancel</button>
+						<button onClick={onBezierUndo} disabled={!canUndo} style={btnStyle(false, !canUndo)}>Undo</button>
+						<button onClick={onBezierApply} style={{ ...btnStyle(true), marginLeft: "auto" }}>Apply to page</button>
+					</div>
+				</div>
+			)}
+		</div>
+	)
+}
+
+function btnStyle(primary: boolean, disabled = false): React.CSSProperties {
+	return {
+		fontSize: 11,
+		padding: "4px 10px",
+		borderRadius: 20,
+		border: primary ? "1px solid rgba(212,184,240,0.6)" : "1px solid rgba(255,255,255,0.2)",
+		background: primary ? "rgba(212,184,240,0.1)" : "transparent",
+		color: "inherit",
+		opacity: disabled ? 0.25 : 0.8,
+		cursor: disabled ? "default" : "pointer",
+		transition: "opacity 0.12s",
+	}
+}
+
+// ─── Clickable text ───────────────────────────────────────────────────────────
+
+function ClickableText({ text, selectedChar, onSelect, style }: {
 	text: string
 	selectedChar: string | null
-	onSelect: (ch: string | null) => void
+	onSelect: (ch: string | null, rect: DOMRect) => void
 	style?: React.CSSProperties
 }) {
 	return (
@@ -149,15 +335,21 @@ function ClickableText({
 						tabIndex={0}
 						aria-label={`Select character ${ch}`}
 						aria-pressed={isSelected}
-						onClick={() => onSelect(isSelected ? null : ch)}
-						onKeyDown={e => e.key === "Enter" && onSelect(isSelected ? null : ch)}
+						onClick={e => {
+							const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+							onSelect(isSelected ? null : ch, rect)
+						}}
+						onKeyDown={e => {
+							if (e.key === "Enter") {
+								const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+								onSelect(isSelected ? null : ch, rect)
+							}
+						}}
 						style={{
 							cursor: "pointer",
-							borderBottom: isSelected
-								? "1px solid rgba(212,184,240,0.7)"
-								: "1px solid transparent",
+							borderBottom: isSelected ? "1px solid rgba(212,184,240,0.7)" : "1px solid transparent",
 							color: isSelected ? "rgba(212,184,240,1)" : "inherit",
-							transition: "color 0.12s, border-color 0.12s",
+							transition: "color 0.1s, border-color 0.1s",
 						}}
 					>
 						{ch}
@@ -168,65 +360,7 @@ function ClickableText({
 	)
 }
 
-// ─── Slider sub-component ────────────────────────────────────────────────────
-
-function AdjSlider({
-	label, value, min, max, onChange,
-}: {
-	label: string; value: number; min: number; max: number
-	onChange: (v: number) => void
-}) {
-	return (
-		<div className="flex flex-col gap-1">
-			<div className="flex justify-between items-baseline">
-				<label className="text-xs opacity-50">{label}</label>
-				<span className="text-xs opacity-30 font-mono tabular-nums" style={{ minWidth: "2.5rem", textAlign: "right" }}>
-					{value > 0 ? `+${value}` : value}
-				</span>
-			</div>
-			<input
-				type="range"
-				min={min}
-				max={max}
-				step={1}
-				value={value}
-				aria-label={label}
-				onChange={e => onChange(Number(e.target.value))}
-				className="w-full"
-			/>
-		</div>
-	)
-}
-
-// ─── Adjustment panel ─────────────────────────────────────────────────────────
-
-function AdjPanel({
-	label, adj, onReset, onChange,
-}: {
-	label: string
-	adj: Adjustments
-	onReset: () => void
-	onChange: (key: keyof Adjustments, value: number) => void
-}) {
-	return (
-		<div className="flex flex-col gap-4">
-			<div className="flex items-center justify-between">
-				<p className="text-xs uppercase tracking-widest opacity-50">{label}</p>
-				<button onClick={onReset} className="text-xs opacity-40 hover:opacity-70 transition-opacity" aria-label={`Reset ${label}`}>
-					Reset
-				</button>
-			</div>
-			<div className="grid grid-cols-2 gap-x-8 gap-y-4">
-				<AdjSlider label="Width"           value={adj.width}     min={-50} max={100} onChange={v => onChange("width",     v)} />
-				<AdjSlider label="Shoulders"       value={adj.shoulders} min={-80} max={100} onChange={v => onChange("shoulders", v)} />
-				<AdjSlider label="Left thickness"  value={adj.leftSide}  min={-50} max={100} onChange={v => onChange("leftSide",  v)} />
-				<AdjSlider label="Right thickness" value={adj.rightSide} min={-50} max={100} onChange={v => onChange("rightSide", v)} />
-			</div>
-		</div>
-	)
-}
-
-// ─── Demo component ───────────────────────────────────────────────────────────
+// ─── Demo ─────────────────────────────────────────────────────────────────────
 
 export default function Demo() {
 	const [font, setFont]           = useState<GlyphFont | null>(null)
@@ -236,21 +370,31 @@ export default function Demo() {
 	const [loadPct, setLoadPct]     = useState(0)
 	const [error, setError]         = useState<string | null>(null)
 
-	// Character selection
-	const [selectedChar, setSelectedChar] = useState<string | null>(null)
+	// Selection
+	const [selectedChar, setSelectedChar]     = useState<string | null>(null)
+	const [anchorRect, setAnchorRect]         = useState<DOMRect | null>(null)
 
-	// Global and per-character adjustments
-	const [globalAdj, setGlobalAdj]           = useState<Adjustments>(ADJ_ZERO)
-	const [charAdjs, setCharAdjs]             = useState<Map<string, Adjustments>>(new Map())
+	// Global adjustments
+	const [globalAdj, setGlobalAdj] = useState<Adjustments>(ADJ_ZERO)
+	// Per-character adjustments
+	const [charAdjs, setCharAdjs]   = useState<Map<string, Adjustments>>(new Map())
 
-	// Track current Blob URL so we revoke it when a new font is loaded
+	// Bezier editor state (managed here to avoid font-blob conflicts with GlyphShaperEditor)
+	const [bezierCmds, setBezierCmds]         = useState<PathCommand[]>([])
+	const [bezierHistory, setBezierHistory]   = useState<PathCommand[][]>([])
+
 	const blobUrlRef  = useRef<string | null>(null)
-	// Original glyph commands per character — snapshotted at parse time
 	const origCmdsRef = useRef<Map<string, GlyphSnapshot>>(new Map())
-	// Debounce timer for slider changes
 	const adjTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-	/** Snapshot original commands for every visible demo character */
+	// Load bezier commands from snapshot whenever selection changes
+	useEffect(() => {
+		if (!selectedChar) { setBezierCmds([]); setBezierHistory([]); return }
+		const snap = origCmdsRef.current.get(selectedChar)
+		setBezierCmds(snap ? snap.cmds.map(c => ({ ...c }) as PathCommand) : (font ? getGlyphCommands(font, selectedChar) : []))
+		setBezierHistory([])
+	}, [selectedChar, font])
+
 	function snapshotFont(f: GlyphFont) {
 		const snap = new Map<string, GlyphSnapshot>()
 		const seen = new Set<string>()
@@ -264,15 +408,11 @@ export default function Demo() {
 		origCmdsRef.current = snap
 	}
 
-	/** Write adjusted glyph commands back into the font, regenerate blob, reinject @font-face */
 	function applyAdjs(f: GlyphFont, gAdj: Adjustments, cAdjs: Map<string, Adjustments>) {
 		for (const [ch, { cmds, cx }] of origCmdsRef.current) {
 			const cAdj = cAdjs.get(ch) ?? ADJ_ZERO
 			const eff  = combineAdj(gAdj, cAdj)
-			const transformed = isZeroAdj(eff)
-				? cmds.map(c => ({ ...c }) as PathCommand)
-				: applyTransform(cmds, cx, eff)
-			setGlyphCommands(f, ch, transformed)
+			setGlyphCommands(f, ch, isZeroAdj(eff) ? cmds.map(c => ({ ...c }) as PathCommand) : applyTransform(cmds, cx, eff))
 		}
 		const blob = fontToBlob(f)
 		const url  = applyFontBlob(DEMO_FAMILY, blob, blobUrlRef.current ?? undefined)
@@ -315,11 +455,52 @@ export default function Demo() {
 		applyAdjs(font, globalAdj, newMap)
 	}
 
-	/** After bezier Apply, update the snapshot so future slider adjustments stack on the new shape */
-	function handleBezierApply(char: string, newCmds: PathCommand[]) {
+	function handleBezierDragStart(snapshot: PathCommand[]) {
+		setBezierHistory(h => {
+			const next = [...h, snapshot]
+			return next.length > 50 ? next.slice(-50) : next
+		})
+	}
+
+	function handleBezierUndo() {
+		setBezierHistory(h => {
+			if (!h.length) return h
+			setBezierCmds(h[h.length - 1])
+			return h.slice(0, -1)
+		})
+	}
+
+	function handleBezierApply() {
+		if (!font || !selectedChar) return
+		// Bake bezier edits into the snapshot (pre-adjustment)
 		const newSnap = new Map(origCmdsRef.current)
-		newSnap.set(char, { cmds: newCmds.map(c => ({ ...c }) as PathCommand), cx: computeCx(newCmds) })
+		const baked   = bezierCmds.map(c => ({ ...c }) as PathCommand)
+		newSnap.set(selectedChar, { cmds: baked, cx: computeCx(baked) })
 		origCmdsRef.current = newSnap
+		// Re-apply all slider adjustments using the updated snapshot
+		applyAdjs(font, globalAdj, charAdjs)
+		// Re-load bezier editor from the new snapshot
+		setBezierCmds(baked.map(c => ({ ...c }) as PathCommand))
+		setBezierHistory([])
+	}
+
+	function handleBezierCancel() {
+		// Restore snapshot (discard unsaved bezier changes)
+		if (selectedChar) {
+			const snap = origCmdsRef.current.get(selectedChar)
+			setBezierCmds(snap ? snap.cmds.map(c => ({ ...c }) as PathCommand) : [])
+		}
+		setBezierHistory([])
+	}
+
+	function handleSelect(ch: string | null, rect: DOMRect) {
+		setSelectedChar(ch)
+		setAnchorRect(ch ? rect : null)
+	}
+
+	function closeTooltip() {
+		setSelectedChar(null)
+		setAnchorRect(null)
 	}
 
 	// Load the default font on mount
@@ -388,11 +569,7 @@ export default function Demo() {
 			} catch (err) {
 				if (!cancelled) setError(err instanceof Error ? err.message : "Could not load default font.")
 			} finally {
-				if (!cancelled) {
-					setLoading(false)
-					setLoadStage(null)
-					setLoadPct(0)
-				}
+				if (!cancelled) { setLoading(false); setLoadStage(null); setLoadPct(0) }
 			}
 		}
 
@@ -411,6 +588,7 @@ export default function Demo() {
 		setError(null)
 		setFont(null)
 		setSelectedChar(null)
+		setAnchorRect(null)
 		setGlobalAdj(ADJ_ZERO)
 		setCharAdjs(new Map())
 		setFileName(file.name)
@@ -433,9 +611,7 @@ export default function Demo() {
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Could not parse this font file.")
 		} finally {
-			setLoading(false)
-			setLoadStage(null)
-			setLoadPct(0)
+			setLoading(false); setLoadStage(null); setLoadPct(0)
 		}
 	}, [])
 
@@ -452,17 +628,16 @@ export default function Demo() {
 	}
 
 	const charAdj = selectedChar ? (charAdjs.get(selectedChar) ?? ADJ_ZERO) : ADJ_ZERO
-
-	const textStyle: React.CSSProperties = { fontFamily: DEMO_FAMILY }
+	const textStyle: React.CSSProperties = { fontFamily: DEMO_FAMILY, fontSize: "1.125rem", lineHeight: "1.8" }
 
 	return (
-		<div className="w-full flex flex-col gap-6">
+		<div className="w-full">
 
 			{/* Upload zone */}
 			<div
 				onDrop={handleDrop}
 				onDragOver={e => e.preventDefault()}
-				className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-white/20 py-8 px-6 text-center transition-colors hover:border-white/40"
+				className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-white/20 py-8 px-6 text-center transition-colors hover:border-white/40 mb-6"
 			>
 				<p className="text-xs uppercase tracking-widest opacity-50">
 					{loading ? (loadStage ?? "Loading…") : fileName ? `Loaded: ${fileName}` : "Drop a font file or click to browse"}
@@ -472,148 +647,80 @@ export default function Demo() {
 				)}
 				<label className="text-xs px-4 py-2 rounded-full border border-white/30 cursor-pointer hover:bg-white/5 transition-colors">
 					{font ? "Swap font" : "Choose TTF / OTF / WOFF / WOFF2"}
-					<input
-						type="file"
-						accept={ACCEPT}
-						onChange={handleInputChange}
-						className="sr-only"
-						aria-label="Upload a font file"
-					/>
+					<input type="file" accept={ACCEPT} onChange={handleInputChange} className="sr-only" aria-label="Upload a font file" />
 				</label>
 			</div>
 
-			{/* Error */}
-			{error && <p className="text-xs text-red-400 opacity-80">{error}</p>}
+			{error && <p className="text-xs text-red-400 opacity-80 mb-6">{error}</p>}
 
 			{/* Loading progress */}
 			{loading && (
-				<div className="rounded-xl px-6 py-8 flex flex-col gap-4" style={{ background: "rgba(0,0,0,0.2)" }}>
+				<div className="rounded-xl px-6 py-8 flex flex-col gap-4 mb-6" style={{ background: "rgba(0,0,0,0.2)" }}>
 					<div className="flex items-center justify-between">
 						<p className="text-xs opacity-50 tracking-widest uppercase">{loadStage ?? "Loading…"}</p>
 						<p className="text-xs opacity-30 font-mono tabular-nums">{loadPct}%</p>
 					</div>
 					<div className="w-full h-px rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
-						<div
-							className="h-full rounded-full transition-all duration-300"
-							style={{ width: `${loadPct}%`, background: "rgba(255,255,255,0.4)" }}
-						/>
+						<div className="h-full rounded-full transition-all duration-300"
+							style={{ width: `${loadPct}%`, background: "rgba(255,255,255,0.4)" }} />
 					</div>
 				</div>
 			)}
 
-			{font && !loading && (<>
-
-				{/* Adjustment panels */}
-				<div className="rounded-xl px-6 py-5 flex flex-col gap-6" style={{ background: "rgba(0,0,0,0.2)" }}>
-					<AdjPanel
-						label="Global adjustments"
-						adj={globalAdj}
-						onReset={resetGlobalAdj}
-						onChange={handleGlobalAdjChange}
-					/>
-					{selectedChar && (
-						<>
-							<div className="h-px" style={{ background: "rgba(255,255,255,0.06)" }} />
-							<AdjPanel
-								label={`Character: ${selectedChar}`}
-								adj={charAdj}
-								onReset={resetCharAdj}
-								onChange={handleCharAdjChange}
-							/>
-						</>
-					)}
-				</div>
-
-				{/* Clickable text preview */}
-				<div className="rounded-xl px-6 py-8 flex flex-col gap-5" style={{ background: "rgba(0,0,0,0.25)" }}>
-					<p className="text-xs uppercase tracking-widest opacity-30">
-						Click any character to edit its shape
-					</p>
-
-					{/* Large display line */}
-					<ClickableText
-						text={DISPLAY_TEXT}
-						selectedChar={selectedChar}
-						onSelect={setSelectedChar}
-						style={{
-							...textStyle,
-							display: "block",
-							fontSize: "clamp(1.6rem, 5vw, 3.2rem)",
-							lineHeight: 1.1,
-							letterSpacing: "-0.02em",
-						}}
-					/>
-
-					{/* Subheading */}
-					<ClickableText
-						text={HEADING_TEXT}
-						selectedChar={selectedChar}
-						onSelect={setSelectedChar}
-						style={{
-							...textStyle,
-							display: "block",
-							fontSize: "clamp(1rem, 2.5vw, 1.6rem)",
-							lineHeight: 1.3,
-							opacity: 0.85,
-						}}
-					/>
-
-					{/* Body text */}
-					<ClickableText
-						text={BODY_TEXT}
-						selectedChar={selectedChar}
-						onSelect={setSelectedChar}
-						style={{
-							...textStyle,
-							display: "block",
-							fontSize: "clamp(0.85rem, 1.8vw, 1rem)",
-							lineHeight: 1.7,
-							opacity: 0.65,
-							maxWidth: "60ch",
-						}}
-					/>
-
-					{/* Small caption */}
-					<ClickableText
-						text={CAPTION_TEXT}
-						selectedChar={selectedChar}
-						onSelect={setSelectedChar}
-						style={{
-							...textStyle,
-							display: "block",
-							fontSize: "clamp(0.75rem, 1.4vw, 0.85rem)",
-							lineHeight: 1.7,
-							opacity: 0.45,
-							maxWidth: "60ch",
-						}}
-					/>
-				</div>
-
-				{/* Bezier editor — shown when a character is selected */}
-				<div className="rounded-xl overflow-hidden" style={{ background: "rgba(0,0,0,0.25)" }}>
-					<div className="px-6 py-6">
-						<GlyphShaperEditor
-							font={font}
-							fontFamily={DEMO_FAMILY}
-							selectedChar={selectedChar}
-							onClose={() => setSelectedChar(null)}
-							onApply={handleBezierApply}
-							hidePalette
-						/>
+			{font && !loading && (
+				<>
+					{/* Global adjustment sliders */}
+					<div className="grid grid-cols-2 sm:grid-cols-4 gap-6 mb-8">
+						<AdjSlider label="Width"           value={globalAdj.width}     min={-50} max={100} onChange={v => handleGlobalAdjChange("width",     v)} />
+						<AdjSlider label="Shoulders"       value={globalAdj.shoulders} min={-80} max={100} onChange={v => handleGlobalAdjChange("shoulders", v)} />
+						<AdjSlider label="Left thickness"  value={globalAdj.leftSide}  min={-50} max={100} onChange={v => handleGlobalAdjChange("leftSide",  v)} />
+						<AdjSlider label="Right thickness" value={globalAdj.rightSide} min={-50} max={100} onChange={v => handleGlobalAdjChange("rightSide", v)} />
 					</div>
-				</div>
 
-			</>)}
+					{/* Two editorial paragraphs */}
+					<div className="flex flex-col gap-6 relative pb-2">
+						<ClickableText text={PARA_1} selectedChar={selectedChar} onSelect={handleSelect} style={textStyle} />
+						<ClickableText text={PARA_2} selectedChar={selectedChar} onSelect={handleSelect} style={textStyle} />
+					</div>
 
-			<p className="text-xs opacity-50 italic" style={{ lineHeight: "1.8" }}>
-				Loaded with Inter by default — swap it for any TTF, OTF, WOFF, or WOFF2 above.
-				Click any character in the text to open its bezier path editor and per-character sliders.
-				Drag anchors (filled circles) or handles (outlined circles) to reshape a specific glyph.
-				Global sliders reshape every glyph at once; character sliders stack on top.
-				Hit <strong>Apply to page</strong> and every instance re-renders instantly via a dynamic{" "}
-				<code className="font-mono">@font-face</code> override. No server. No export.
-				Changes reset on page reload.
-			</p>
+					{/* Reset global */}
+					<div className="flex justify-end mt-4">
+						<button onClick={resetGlobalAdj} className="text-xs opacity-30 hover:opacity-60 transition-opacity">
+							Reset all
+						</button>
+					</div>
+				</>
+			)}
+
+			{/* Caption */}
+			{!loading && (
+				<p className="text-xs opacity-50 italic mt-6" style={{ lineHeight: "1.8" }}>
+					{font
+						? "Click any character to open per-glyph sliders and the bezier path editor. Global sliders reshape every glyph at once."
+						: "Loaded with Inter by default — swap it for any TTF, OTF, WOFF, or WOFF2 above."
+					}
+				</p>
+			)}
+
+			{/* Floating tooltip — rendered in a portal via fixed position */}
+			{selectedChar && anchorRect && font && (
+				<Tooltip
+					char={selectedChar}
+					anchor={anchorRect}
+					font={font}
+					charAdj={charAdj}
+					onCharAdjChange={handleCharAdjChange}
+					onResetCharAdj={resetCharAdj}
+					bezierCmds={bezierCmds}
+					onBezierChange={setBezierCmds}
+					onBezierDragStart={handleBezierDragStart}
+					bezierHistory={bezierHistory}
+					onBezierUndo={handleBezierUndo}
+					onBezierApply={handleBezierApply}
+					onBezierCancel={handleBezierCancel}
+					onClose={closeTooltip}
+				/>
+			)}
 		</div>
 	)
 }
