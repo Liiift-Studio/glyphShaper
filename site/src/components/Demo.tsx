@@ -46,6 +46,7 @@ export default function Demo() {
 	// Load the default font on mount
 	useEffect(() => {
 		let cancelled = false
+		const abortController = new AbortController()
 		setLoading(true)
 		setLoadPct(0)
 
@@ -53,38 +54,37 @@ export default function Demo() {
 			try {
 				// Stage 1 — fetch with progress tracking via streaming
 				setLoadStage("Fetching font")
-				const res = await fetch(DEFAULT_FONT_URL)
+				const res = await fetch(DEFAULT_FONT_URL, { signal: abortController.signal })
 				if (!res.ok) throw new Error(`HTTP ${res.status}`)
 
-				// Stream the response so we can track download progress
+				// Only stream if Content-Length is available — avoids locking the body
+				// when falling back to arrayBuffer() on responses without it.
 				const contentLength = Number(res.headers.get("content-length") ?? 0)
-				const reader = res.body?.getReader()
-				const chunks: Uint8Array[] = []
-				let received = 0
+				let buffer: ArrayBuffer
 
-				if (reader && contentLength > 0) {
+				if (contentLength > 0 && res.body) {
+					const reader = res.body.getReader()
+					const chunks: Uint8Array[] = []
+					let received = 0
 					while (true) {
 						const { done, value } = await reader.read()
-						if (done || cancelled) break
+						if (done || cancelled) { reader.cancel(); break }
 						chunks.push(value)
 						received += value.length
 						setLoadPct(Math.round((received / contentLength) * 40))
 					}
+					if (cancelled) return
+					const totalLength = chunks.reduce((s, c) => s + c.length, 0)
+					const merged = new Uint8Array(totalLength)
+					let off = 0
+					for (const chunk of chunks) { merged.set(chunk, off); off += chunk.length }
+					buffer = merged.buffer
 				} else {
-					// Fallback — no content-length, read all at once
-					const fallback = await (reader ? res.arrayBuffer() : res.clone().arrayBuffer())
-					chunks.push(new Uint8Array(fallback instanceof ArrayBuffer ? fallback : await fallback))
+					buffer = await res.arrayBuffer()
 					setLoadPct(40)
 				}
 
 				if (cancelled) return
-
-				// Reassemble into ArrayBuffer
-				const totalLength = chunks.reduce((s, c) => s + c.length, 0)
-				const merged = new Uint8Array(totalLength)
-				let offset = 0
-				for (const chunk of chunks) { merged.set(chunk, offset); offset += chunk.length }
-				const buffer = merged.buffer
 
 				// Stage 2 — parse glyphs (opentype.js, async).
 				// parseFont has no progress callbacks, so animate the bar toward 85%
@@ -124,7 +124,14 @@ export default function Demo() {
 		}
 
 		loadDefault()
-		return () => { cancelled = true }
+		return () => {
+			cancelled = true
+			abortController.abort()
+			if (blobUrlRef.current) {
+				URL.revokeObjectURL(blobUrlRef.current)
+				blobUrlRef.current = null
+			}
+		}
 	}, [])
 
 	const handleFile = useCallback(async (file: File) => {

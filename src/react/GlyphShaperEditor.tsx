@@ -205,10 +205,12 @@ function GlyphSvgEditor({
 	const ptrToGlyph = useCallback((e: React.PointerEvent): [number, number] => {
 		const svg = svgRef.current
 		if (!svg) return [0, 0]
+		const ctm = svg.getScreenCTM()
+		if (!ctm) return [0, 0]
 		const pt = svg.createSVGPoint()
 		pt.x = e.clientX
 		pt.y = e.clientY
-		const svgPt = pt.matrixTransform(svg.getScreenCTM()!.inverse())
+		const svgPt = pt.matrixTransform(ctm.inverse())
 		return toGlyph(svgPt.x, svgPt.y, scale, lsb, ascender)
 	}, [scale, lsb, ascender])
 
