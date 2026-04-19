@@ -9,20 +9,23 @@ import type { GlyphFont, PathCommand } from "@liiift-studio/glyphshaper"
 /** CSS font-family name used for the demo override rule */
 const DEMO_FAMILY = "GlyphShaperDemo"
 
-/** Sample text whose characters populate the editor palette */
-const SAMPLE = "Typography"
-
-/** Body text shown below the heading — used to determine which glyphs to snapshot */
-const BODY_TEXT = "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs."
-
-/** All characters visible in the demo — only these are snapshotted for global adjustments */
-const DEMO_CHARS = SAMPLE + BODY_TEXT
-
 /** Accepted font file extensions */
 const ACCEPT = ".ttf,.otf,.woff,.woff2"
 
 /** URL of the default font bundled with the site */
 const DEFAULT_FONT_URL = "/fonts/inter-300.woff"
+
+/** Display name shown in the upload zone for the default font */
+const DEFAULT_FONT_NAME = "Inter"
+
+/** Demo text blocks shown in the preview */
+const DISPLAY_TEXT  = "Sphinx of black quartz, judge my vow."
+const HEADING_TEXT  = "Typography lives in its details."
+const BODY_TEXT     = "The quick brown fox jumps over the lazy dog. Five boxing wizards jump quickly."
+const CAPTION_TEXT  = "Pack my box with five dozen liquor jugs. How vexingly quick daft zebras jump!"
+
+/** All characters visible in the demo — these get snapshotted for global adjustments */
+const ALL_DEMO_TEXT = DISPLAY_TEXT + HEADING_TEXT + BODY_TEXT + CAPTION_TEXT
 
 /** Server-side WOFF2 decompressor — keeps wawoff2 out of the browser bundle */
 async function decompressWoff2(buffer: ArrayBuffer): Promise<ArrayBuffer> {
@@ -31,14 +34,11 @@ async function decompressWoff2(buffer: ArrayBuffer): Promise<ArrayBuffer> {
 	return res.arrayBuffer()
 }
 
-/** Display name shown in the upload zone for the default font */
-const DEFAULT_FONT_NAME = "Inter"
-
 /** Loading stages shown in the progress bar */
 const LOAD_STAGES = ["Fetching font", "Parsing glyphs", "Applying to page"] as const
 type LoadStage = typeof LOAD_STAGES[number] | null
 
-// ─── Global adjustments ───────────────────────────────────────────────────────
+// ─── Adjustments ─────────────────────────────────────────────────────────────
 
 type Adjustments = {
 	/** Uniform horizontal scale (%) around the glyph's own centre */
@@ -66,6 +66,20 @@ function computeCx(cmds: PathCommand[]): number {
 	return minX === Infinity ? 0 : (minX + maxX) / 2
 }
 
+/** Combine global + per-character adjustments additively */
+function combineAdj(global: Adjustments, local: Adjustments): Adjustments {
+	return {
+		width:     global.width     + local.width,
+		leftSide:  global.leftSide  + local.leftSide,
+		rightSide: global.rightSide + local.rightSide,
+		shoulders: global.shoulders + local.shoulders,
+	}
+}
+
+function isZeroAdj(a: Adjustments): boolean {
+	return a.width === 0 && a.leftSide === 0 && a.rightSide === 0 && a.shoulders === 0
+}
+
 /** Apply width + left/right thickness to a single x coordinate */
 function adjX(x: number, cx: number, width: number, leftSide: number, rightSide: number): number {
 	let nx = cx + (x - cx) * (1 + width / 100)
@@ -83,13 +97,11 @@ function applyTransform(cmds: PathCommand[], cx: number, adj: Adjustments): Path
 	return cmds.map(cmd => {
 		if (cmd.type === "Z") return { type: "Z" }
 		if (cmd.type === "M") {
-			const nx = tx(cmd.x)
-			px = nx; py = cmd.y
+			const nx = tx(cmd.x); px = nx; py = cmd.y
 			return { type: "M", x: nx, y: cmd.y }
 		}
 		if (cmd.type === "L") {
-			const nx = tx(cmd.x)
-			px = nx; py = cmd.y
+			const nx = tx(cmd.x); px = nx; py = cmd.y
 			return { type: "L", x: nx, y: cmd.y }
 		}
 		if (cmd.type === "Q") {
@@ -110,6 +122,50 @@ function applyTransform(cmds: PathCommand[], cx: number, adj: Adjustments): Path
 		}
 		return cmd as PathCommand
 	})
+}
+
+// ─── Clickable text renderer ──────────────────────────────────────────────────
+
+function ClickableText({
+	text,
+	selectedChar,
+	onSelect,
+	style,
+}: {
+	text: string
+	selectedChar: string | null
+	onSelect: (ch: string | null) => void
+	style?: React.CSSProperties
+}) {
+	return (
+		<span style={style}>
+			{text.split("").map((ch, i) => {
+				if (ch === " ") return <span key={i}>{" "}</span>
+				const isSelected = selectedChar === ch
+				return (
+					<span
+						key={i}
+						role="button"
+						tabIndex={0}
+						aria-label={`Select character ${ch}`}
+						aria-pressed={isSelected}
+						onClick={() => onSelect(isSelected ? null : ch)}
+						onKeyDown={e => e.key === "Enter" && onSelect(isSelected ? null : ch)}
+						style={{
+							cursor: "pointer",
+							borderBottom: isSelected
+								? "1px solid rgba(212,184,240,0.7)"
+								: "1px solid transparent",
+							color: isSelected ? "rgba(212,184,240,1)" : "inherit",
+							transition: "color 0.12s, border-color 0.12s",
+						}}
+					>
+						{ch}
+					</span>
+				)
+			})}
+		</span>
+	)
 }
 
 // ─── Slider sub-component ────────────────────────────────────────────────────
@@ -142,29 +198,63 @@ function AdjSlider({
 	)
 }
 
+// ─── Adjustment panel ─────────────────────────────────────────────────────────
+
+function AdjPanel({
+	label, adj, onReset, onChange,
+}: {
+	label: string
+	adj: Adjustments
+	onReset: () => void
+	onChange: (key: keyof Adjustments, value: number) => void
+}) {
+	return (
+		<div className="flex flex-col gap-4">
+			<div className="flex items-center justify-between">
+				<p className="text-xs uppercase tracking-widest opacity-50">{label}</p>
+				<button onClick={onReset} className="text-xs opacity-40 hover:opacity-70 transition-opacity" aria-label={`Reset ${label}`}>
+					Reset
+				</button>
+			</div>
+			<div className="grid grid-cols-2 gap-x-8 gap-y-4">
+				<AdjSlider label="Width"           value={adj.width}     min={-50} max={100} onChange={v => onChange("width",     v)} />
+				<AdjSlider label="Shoulders"       value={adj.shoulders} min={-80} max={100} onChange={v => onChange("shoulders", v)} />
+				<AdjSlider label="Left thickness"  value={adj.leftSide}  min={-50} max={100} onChange={v => onChange("leftSide",  v)} />
+				<AdjSlider label="Right thickness" value={adj.rightSide} min={-50} max={100} onChange={v => onChange("rightSide", v)} />
+			</div>
+		</div>
+	)
+}
+
 // ─── Demo component ───────────────────────────────────────────────────────────
 
 export default function Demo() {
-	const [font, setFont]         = useState<GlyphFont | null>(null)
-	const [fileName, setFileName] = useState<string>("")
-	const [loading, setLoading]   = useState(false)
+	const [font, setFont]           = useState<GlyphFont | null>(null)
+	const [fileName, setFileName]   = useState<string>("")
+	const [loading, setLoading]     = useState(false)
 	const [loadStage, setLoadStage] = useState<LoadStage>(null)
-	const [loadPct, setLoadPct]   = useState(0)
-	const [error, setError]       = useState<string | null>(null)
-	const [adj, setAdj]           = useState<Adjustments>(ADJ_ZERO)
+	const [loadPct, setLoadPct]     = useState(0)
+	const [error, setError]         = useState<string | null>(null)
+
+	// Character selection
+	const [selectedChar, setSelectedChar] = useState<string | null>(null)
+
+	// Global and per-character adjustments
+	const [globalAdj, setGlobalAdj]           = useState<Adjustments>(ADJ_ZERO)
+	const [charAdjs, setCharAdjs]             = useState<Map<string, Adjustments>>(new Map())
 
 	// Track current Blob URL so we revoke it when a new font is loaded
-	const blobUrlRef   = useRef<string | null>(null)
-	// Original glyph commands (per character) captured immediately after parse
-	const origCmdsRef  = useRef<Map<string, GlyphSnapshot>>(new Map())
+	const blobUrlRef  = useRef<string | null>(null)
+	// Original glyph commands per character — snapshotted at parse time
+	const origCmdsRef = useRef<Map<string, GlyphSnapshot>>(new Map())
 	// Debounce timer for slider changes
-	const adjTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
+	const adjTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
 	/** Snapshot original commands for every visible demo character */
 	function snapshotFont(f: GlyphFont) {
 		const snap = new Map<string, GlyphSnapshot>()
 		const seen = new Set<string>()
-		for (const ch of DEMO_CHARS) {
+		for (const ch of ALL_DEMO_TEXT) {
 			if (seen.has(ch) || ch === " ") continue
 			seen.add(ch)
 			const cmds = getGlyphCommands(f, ch)
@@ -175,12 +265,13 @@ export default function Demo() {
 	}
 
 	/** Write adjusted glyph commands back into the font, regenerate blob, reinject @font-face */
-	function applyAdj(f: GlyphFont, a: Adjustments) {
-		const isZero = (Object.keys(a) as (keyof Adjustments)[]).every(k => a[k] === 0)
+	function applyAdjs(f: GlyphFont, gAdj: Adjustments, cAdjs: Map<string, Adjustments>) {
 		for (const [ch, { cmds, cx }] of origCmdsRef.current) {
-			const transformed = isZero
+			const cAdj = cAdjs.get(ch) ?? ADJ_ZERO
+			const eff  = combineAdj(gAdj, cAdj)
+			const transformed = isZeroAdj(eff)
 				? cmds.map(c => ({ ...c }) as PathCommand)
-				: applyTransform(cmds, cx, a)
+				: applyTransform(cmds, cx, eff)
 			setGlyphCommands(f, ch, transformed)
 		}
 		const blob = fontToBlob(f)
@@ -188,21 +279,47 @@ export default function Demo() {
 		blobUrlRef.current = url
 	}
 
-	/** Update one slider field and debounce the font regen */
-	function handleAdjChange(key: keyof Adjustments, value: number) {
-		const next = { ...adj, [key]: value }
-		setAdj(next)
+	function scheduleApply(f: GlyphFont, gAdj: Adjustments, cAdjs: Map<string, Adjustments>) {
 		if (adjTimerRef.current) clearTimeout(adjTimerRef.current)
-		adjTimerRef.current = setTimeout(() => {
-			if (font) applyAdj(font, next)
-		}, 60)
+		adjTimerRef.current = setTimeout(() => applyAdjs(f, gAdj, cAdjs), 60)
 	}
 
-	/** Reset all sliders to zero and immediately restore original outlines */
-	function resetAdj() {
-		setAdj(ADJ_ZERO)
+	function handleGlobalAdjChange(key: keyof Adjustments, value: number) {
+		const next = { ...globalAdj, [key]: value }
+		setGlobalAdj(next)
+		if (font) scheduleApply(font, next, charAdjs)
+	}
+
+	function resetGlobalAdj() {
+		setGlobalAdj(ADJ_ZERO)
 		if (adjTimerRef.current) clearTimeout(adjTimerRef.current)
-		if (font) applyAdj(font, ADJ_ZERO)
+		if (font) applyAdjs(font, ADJ_ZERO, charAdjs)
+	}
+
+	function handleCharAdjChange(key: keyof Adjustments, value: number) {
+		if (!selectedChar || !font) return
+		const current = charAdjs.get(selectedChar) ?? ADJ_ZERO
+		const next    = { ...current, [key]: value }
+		const newMap  = new Map(charAdjs)
+		newMap.set(selectedChar, next)
+		setCharAdjs(newMap)
+		scheduleApply(font, globalAdj, newMap)
+	}
+
+	function resetCharAdj() {
+		if (!selectedChar || !font) return
+		const newMap = new Map(charAdjs)
+		newMap.delete(selectedChar)
+		setCharAdjs(newMap)
+		if (adjTimerRef.current) clearTimeout(adjTimerRef.current)
+		applyAdjs(font, globalAdj, newMap)
+	}
+
+	/** After bezier Apply, update the snapshot so future slider adjustments stack on the new shape */
+	function handleBezierApply(char: string, newCmds: PathCommand[]) {
+		const newSnap = new Map(origCmdsRef.current)
+		newSnap.set(char, { cmds: newCmds.map(c => ({ ...c }) as PathCommand), cx: computeCx(newCmds) })
+		origCmdsRef.current = newSnap
 	}
 
 	// Load the default font on mount
@@ -214,13 +331,10 @@ export default function Demo() {
 
 		async function loadDefault() {
 			try {
-				// Stage 1 — fetch with progress tracking via streaming
 				setLoadStage("Fetching font")
 				const res = await fetch(DEFAULT_FONT_URL, { signal: abortController.signal })
 				if (!res.ok) throw new Error(`HTTP ${res.status}`)
 
-				// Only stream if Content-Length is available — avoids locking the body
-				// when falling back to arrayBuffer() on responses without it.
 				const contentLength = Number(res.headers.get("content-length") ?? 0)
 				let buffer: ArrayBuffer
 
@@ -248,12 +362,9 @@ export default function Demo() {
 
 				if (cancelled) return
 
-				// Stage 2 — parse glyphs (opentype.js, async).
-				// parseFont has no progress callbacks, so animate the bar toward 85%
-				// with an exponential ease that slows as it approaches the ceiling.
 				setLoadStage("Parsing glyphs")
 				setLoadPct(42)
-				await new Promise(r => setTimeout(r, 0)) // yield to UI
+				await new Promise(r => setTimeout(r, 0))
 
 				let animPct = 42
 				const animTimer = setInterval(() => {
@@ -264,7 +375,6 @@ export default function Demo() {
 				const parsed = await parseFont(buffer, decompressWoff2).finally(() => clearInterval(animTimer))
 				if (cancelled) return
 
-				// Stage 3 — serialise to Blob and inject @font-face
 				setLoadStage("Applying to page")
 				setLoadPct(88)
 				await new Promise(r => setTimeout(r, 0))
@@ -290,10 +400,7 @@ export default function Demo() {
 		return () => {
 			cancelled = true
 			abortController.abort()
-			if (blobUrlRef.current) {
-				URL.revokeObjectURL(blobUrlRef.current)
-				blobUrlRef.current = null
-			}
+			if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null }
 			if (adjTimerRef.current) clearTimeout(adjTimerRef.current)
 		}
 	}, [])
@@ -303,7 +410,9 @@ export default function Demo() {
 		setLoadPct(0)
 		setError(null)
 		setFont(null)
-		setAdj(ADJ_ZERO)
+		setSelectedChar(null)
+		setGlobalAdj(ADJ_ZERO)
+		setCharAdjs(new Map())
 		setFileName(file.name)
 
 		try {
@@ -313,7 +422,6 @@ export default function Demo() {
 			setLoadPct(55)
 			const parsed = await parseFont(buffer, decompressWoff2)
 
-			// Apply the font immediately so the preview text renders with it
 			setLoadStage("Applying to page")
 			setLoadPct(88)
 			snapshotFont(parsed)
@@ -321,7 +429,6 @@ export default function Demo() {
 			const url  = applyFontBlob(DEMO_FAMILY, blob, blobUrlRef.current ?? undefined)
 			blobUrlRef.current = url
 			setLoadPct(100)
-
 			setFont(parsed)
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Could not parse this font file.")
@@ -335,7 +442,6 @@ export default function Demo() {
 	function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
 		const file = e.target.files?.[0]
 		if (file) handleFile(file)
-		// Reset input so the same file can be re-selected if needed
 		e.target.value = ""
 	}
 
@@ -344,6 +450,10 @@ export default function Demo() {
 		const file = e.dataTransfer.files[0]
 		if (file) handleFile(file)
 	}
+
+	const charAdj = selectedChar ? (charAdjs.get(selectedChar) ?? ADJ_ZERO) : ADJ_ZERO
+
+	const textStyle: React.CSSProperties = { fontFamily: DEMO_FAMILY }
 
 	return (
 		<div className="w-full flex flex-col gap-6">
@@ -373,11 +483,9 @@ export default function Demo() {
 			</div>
 
 			{/* Error */}
-			{error && (
-				<p className="text-xs text-red-400 opacity-80">{error}</p>
-			)}
+			{error && <p className="text-xs text-red-400 opacity-80">{error}</p>}
 
-			{/* Loading progress — shown while font is loading */}
+			{/* Loading progress */}
 			{loading && (
 				<div className="rounded-xl px-6 py-8 flex flex-col gap-4" style={{ background: "rgba(0,0,0,0.2)" }}>
 					<div className="flex items-center justify-between">
@@ -390,71 +498,119 @@ export default function Demo() {
 							style={{ width: `${loadPct}%`, background: "rgba(255,255,255,0.4)" }}
 						/>
 					</div>
-					<p className="text-xs opacity-20">Inter · WOFF · 22 KB</p>
 				</div>
 			)}
 
-			{/* Global adjustment sliders — shown once a font is loaded */}
-			{font && !loading && (
-				<div className="rounded-xl px-6 py-5 flex flex-col gap-4" style={{ background: "rgba(0,0,0,0.2)" }}>
-					<div className="flex items-center justify-between">
-						<p className="text-xs uppercase tracking-widest opacity-50">Global adjustments</p>
-						<button
-							onClick={resetAdj}
-							className="text-xs opacity-40 hover:opacity-70 transition-opacity"
-							aria-label="Reset all adjustments"
-						>
-							Reset
-						</button>
-					</div>
-					<div className="grid grid-cols-2 gap-x-8 gap-y-4">
-						<AdjSlider label="Width"           value={adj.width}     min={-50} max={100} onChange={v => handleAdjChange("width",     v)} />
-						<AdjSlider label="Shoulders"       value={adj.shoulders} min={-80} max={100} onChange={v => handleAdjChange("shoulders", v)} />
-						<AdjSlider label="Left thickness"  value={adj.leftSide}  min={-50} max={100} onChange={v => handleAdjChange("leftSide",  v)} />
-						<AdjSlider label="Right thickness" value={adj.rightSide} min={-50} max={100} onChange={v => handleAdjChange("rightSide", v)} />
-					</div>
-				</div>
-			)}
+			{font && !loading && (<>
 
-			{/* Editor — only shown once a font is loaded */}
-			{font ? (
+				{/* Adjustment panels */}
+				<div className="rounded-xl px-6 py-5 flex flex-col gap-6" style={{ background: "rgba(0,0,0,0.2)" }}>
+					<AdjPanel
+						label="Global adjustments"
+						adj={globalAdj}
+						onReset={resetGlobalAdj}
+						onChange={handleGlobalAdjChange}
+					/>
+					{selectedChar && (
+						<>
+							<div className="h-px" style={{ background: "rgba(255,255,255,0.06)" }} />
+							<AdjPanel
+								label={`Character: ${selectedChar}`}
+								adj={charAdj}
+								onReset={resetCharAdj}
+								onChange={handleCharAdjChange}
+							/>
+						</>
+					)}
+				</div>
+
+				{/* Clickable text preview */}
+				<div className="rounded-xl px-6 py-8 flex flex-col gap-5" style={{ background: "rgba(0,0,0,0.25)" }}>
+					<p className="text-xs uppercase tracking-widest opacity-30">
+						Click any character to edit its shape
+					</p>
+
+					{/* Large display line */}
+					<ClickableText
+						text={DISPLAY_TEXT}
+						selectedChar={selectedChar}
+						onSelect={setSelectedChar}
+						style={{
+							...textStyle,
+							display: "block",
+							fontSize: "clamp(1.6rem, 5vw, 3.2rem)",
+							lineHeight: 1.1,
+							letterSpacing: "-0.02em",
+						}}
+					/>
+
+					{/* Subheading */}
+					<ClickableText
+						text={HEADING_TEXT}
+						selectedChar={selectedChar}
+						onSelect={setSelectedChar}
+						style={{
+							...textStyle,
+							display: "block",
+							fontSize: "clamp(1rem, 2.5vw, 1.6rem)",
+							lineHeight: 1.3,
+							opacity: 0.85,
+						}}
+					/>
+
+					{/* Body text */}
+					<ClickableText
+						text={BODY_TEXT}
+						selectedChar={selectedChar}
+						onSelect={setSelectedChar}
+						style={{
+							...textStyle,
+							display: "block",
+							fontSize: "clamp(0.85rem, 1.8vw, 1rem)",
+							lineHeight: 1.7,
+							opacity: 0.65,
+							maxWidth: "60ch",
+						}}
+					/>
+
+					{/* Small caption */}
+					<ClickableText
+						text={CAPTION_TEXT}
+						selectedChar={selectedChar}
+						onSelect={setSelectedChar}
+						style={{
+							...textStyle,
+							display: "block",
+							fontSize: "clamp(0.75rem, 1.4vw, 0.85rem)",
+							lineHeight: 1.7,
+							opacity: 0.45,
+							maxWidth: "60ch",
+						}}
+					/>
+				</div>
+
+				{/* Bezier editor — shown when a character is selected */}
 				<div className="rounded-xl overflow-hidden" style={{ background: "rgba(0,0,0,0.25)" }}>
 					<div className="px-6 py-6">
-						<GlyphShaperEditor font={font} fontFamily={DEMO_FAMILY} text={SAMPLE}>
-							{/* Sample text rendered with the uploaded font */}
-							<p
-								style={{
-									fontFamily: DEMO_FAMILY,
-									fontSize: "clamp(2rem, 8vw, 5rem)",
-									lineHeight: 1.1,
-									letterSpacing: "-0.02em",
-									marginBottom: "0.5em",
-								}}
-							>
-								{SAMPLE}
-							</p>
-							<p
-								style={{
-									fontFamily: DEMO_FAMILY,
-									fontSize: "clamp(0.9rem, 2vw, 1.1rem)",
-									lineHeight: 1.6,
-									opacity: 0.7,
-									maxWidth: "42ch",
-								}}
-							>
-								{BODY_TEXT}
-							</p>
-						</GlyphShaperEditor>
+						<GlyphShaperEditor
+							font={font}
+							fontFamily={DEMO_FAMILY}
+							selectedChar={selectedChar}
+							onClose={() => setSelectedChar(null)}
+							onApply={handleBezierApply}
+							hidePalette
+						/>
 					</div>
 				</div>
-			) : null}
+
+			</>)}
 
 			<p className="text-xs opacity-50 italic" style={{ lineHeight: "1.8" }}>
 				Loaded with Inter by default — swap it for any TTF, OTF, WOFF, or WOFF2 above.
-				Use the global sliders to reshape every glyph at once, or click a character tile to open its bezier path editor.
-				Drag anchors (filled circles) or handles (outlined circles) to reshape individual glyphs.
-				Hit <strong>Apply to page</strong> and every instance — headings, body text,
-				wherever that font-family is used — re-renders instantly via a dynamic{" "}
+				Click any character in the text to open its bezier path editor and per-character sliders.
+				Drag anchors (filled circles) or handles (outlined circles) to reshape a specific glyph.
+				Global sliders reshape every glyph at once; character sliders stack on top.
+				Hit <strong>Apply to page</strong> and every instance re-renders instantly via a dynamic{" "}
 				<code className="font-mono">@font-face</code> override. No server. No export.
 				Changes reset on page reload.
 			</p>

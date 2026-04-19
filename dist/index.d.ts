@@ -121,13 +121,17 @@ declare interface GlyphFontState {
  * Each drag operation is one undo step. Undo is available via the button or
  * Ctrl/Cmd+Z while the editor is open.
  *
+ * Pass `selectedChar` + `onClose` to operate in controlled mode (e.g. when
+ * selection comes from clicking characters in rendered text rather than the
+ * built-in tile palette).
+ *
  * @example
  * const { font } = useGlyphFont('/fonts/MyFont.ttf')
  * <GlyphShaperEditor font={font} fontFamily="MyFont" text="Heading">
  *   <h1 style={{ fontFamily: 'MyFont' }}>Heading</h1>
  * </GlyphShaperEditor>
  */
-export declare function GlyphShaperEditor({ font, fontFamily, text, children, }: GlyphShaperEditorProps): JSX.Element;
+export declare function GlyphShaperEditor({ font, fontFamily, text, children, selectedChar, onClose, onApply, hidePalette, }: GlyphShaperEditorProps): JSX.Element;
 
 /** Props for GlyphShaperEditor */
 declare interface GlyphShaperEditorProps {
@@ -152,6 +156,28 @@ declare interface GlyphShaperEditorProps {
      * If omitted, `text` is rendered as a paragraph.
      */
     children?: React.ReactNode;
+    /**
+     * Externally controlled selected character.
+     * When provided, the component operates in controlled mode — the palette
+     * still works but the bezier editor opens/closes based on this value.
+     * Pass null to close the editor programmatically.
+     */
+    selectedChar?: string | null;
+    /**
+     * Called when the editor closes — either from Cancel or after Apply.
+     * Use this to reset the controlled selectedChar in the parent.
+     */
+    onClose?: () => void;
+    /**
+     * Called after the user clicks "Apply to page" with the character and its
+     * new path commands. Use this to update any external glyph snapshots.
+     */
+    onApply?: (char: string, commands: PathCommand[]) => void;
+    /**
+     * Hide the character tile palette row.
+     * Useful when selection is driven by clicking in rendered text instead.
+     */
+    hidePalette?: boolean;
 }
 
 /** Options for the @font-face override rule injected by applyFontBlob */

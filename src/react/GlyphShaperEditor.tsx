@@ -359,6 +359,28 @@ export interface GlyphShaperEditorProps {
 	 * If omitted, `text` is rendered as a paragraph.
 	 */
 	children?: React.ReactNode
+	/**
+	 * Externally controlled selected character.
+	 * When provided, the component operates in controlled mode — the palette
+	 * still works but the bezier editor opens/closes based on this value.
+	 * Pass null to close the editor programmatically.
+	 */
+	selectedChar?: string | null
+	/**
+	 * Called when the editor closes — either from Cancel or after Apply.
+	 * Use this to reset the controlled selectedChar in the parent.
+	 */
+	onClose?: () => void
+	/**
+	 * Called after the user clicks "Apply to page" with the character and its
+	 * new path commands. Use this to update any external glyph snapshots.
+	 */
+	onApply?: (char: string, commands: PathCommand[]) => void
+	/**
+	 * Hide the character tile palette row.
+	 * Useful when selection is driven by clicking in rendered text instead.
+	 */
+	hidePalette?: boolean
 }
 
 /**
@@ -373,6 +395,10 @@ export interface GlyphShaperEditorProps {
  * Each drag operation is one undo step. Undo is available via the button or
  * Ctrl/Cmd+Z while the editor is open.
  *
+ * Pass `selectedChar` + `onClose` to operate in controlled mode (e.g. when
+ * selection comes from clicking characters in rendered text rather than the
+ * built-in tile palette).
+ *
  * @example
  * const { font } = useGlyphFont('/fonts/MyFont.ttf')
  * <GlyphShaperEditor font={font} fontFamily="MyFont" text="Heading">
@@ -384,6 +410,10 @@ export function GlyphShaperEditor({
 	fontFamily,
 	text = 'Typography',
 	children,
+	selectedChar,
+	onClose,
+	onApply,
+	hidePalette = false,
 }: GlyphShaperEditorProps) {
 	const [editingChar, setEditingChar] = useState<string | null>(null)
 	const [commands, setCommands]       = useState<PathCommand[]>([])
@@ -391,9 +421,33 @@ export function GlyphShaperEditor({
 	const [history, setHistory]         = useState<PathCommand[][]>([])
 	/** Most-recently applied Blob URL — kept so we can revoke it on next apply */
 	const appliedUrlRef = useRef<string | null>(null)
+	/** Ref that stays in sync with editingChar without triggering effect deps */
+	const editingCharRef = useRef<string | null>(null)
 
 	const chars   = uniquePrintableChars(text)
 	const canUndo = history.length > 0
+
+	// Keep editingCharRef in sync
+	useEffect(() => { editingCharRef.current = editingChar }, [editingChar])
+
+	// ─── Controlled mode: sync selectedChar prop → internal state ──────────────
+
+	useEffect(() => {
+		if (selectedChar === undefined) return // uncontrolled
+		if (!font) return
+		const current = editingCharRef.current
+		if (selectedChar === null) {
+			if (current !== null) {
+				setEditingChar(null)
+				setCommands([])
+				setHistory([])
+			}
+		} else if (selectedChar !== current) {
+			setCommands(getGlyphCommands(font, selectedChar))
+			setEditingChar(selectedChar)
+			setHistory([])
+		}
+	}, [selectedChar, font])
 
 	// ─── Undo ──────────────────────────────────────────────────────────────────
 
@@ -445,6 +499,7 @@ export function GlyphShaperEditor({
 		setEditingChar(null)
 		setCommands([])
 		setHistory([])
+		onClose?.()
 	}
 
 	function handleApply() {
@@ -453,9 +508,11 @@ export function GlyphShaperEditor({
 		const blob = fontToBlob(font)
 		const url  = applyFontBlob(fontFamily, blob, appliedUrlRef.current ?? undefined)
 		appliedUrlRef.current = url
+		onApply?.(editingChar, [...commands])
 		setEditingChar(null)
 		setCommands([])
 		setHistory([])
+		onClose?.()
 	}
 
 	// ─── Render ────────────────────────────────────────────────────────────────
@@ -463,12 +520,14 @@ export function GlyphShaperEditor({
 	return (
 		<div>
 			{/* Rendered text preview */}
-			<div style={{ fontFamily }}>
-				{children ?? <p>{text}</p>}
-			</div>
+			{(children != null || !hidePalette) && (
+				<div style={{ fontFamily }}>
+					{children ?? <p>{text}</p>}
+				</div>
+			)}
 
-			{/* Character palette */}
-			{font && (
+			{/* Character palette — hidden when driven by external selection */}
+			{font && !hidePalette && (
 				<div
 					role="group"
 					aria-label="Character palette — click to edit"
