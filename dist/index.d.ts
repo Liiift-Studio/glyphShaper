@@ -134,7 +134,7 @@ declare interface GlyphFontState {
 export declare function GlyphShaperEditor({ font, fontFamily, text, children, selectedChar, onClose, onApply, hidePalette, }: GlyphShaperEditorProps): JSX.Element;
 
 /** Props for GlyphShaperEditor */
-declare interface GlyphShaperEditorProps {
+export declare interface GlyphShaperEditorProps {
     /**
      * Parsed font from useGlyphFont() or parseFont().
      * Pass null while the font is loading to render a disabled state.
@@ -186,6 +186,33 @@ export declare interface GlyphShaperOptions {
     fontWeight?: string;
     /** CSS font-style for the @font-face rule. Default: 'normal' */
     fontStyle?: string;
+}
+
+/**
+ * Interactive SVG panel showing the glyph outline with draggable bezier control
+ * points.
+ *
+ * - Renders at `width: 100%` — fills whatever container it is placed in.
+ * - `viewBox` stays fixed at VIEWBOX × VIEWBOX; `getScreenCTM().inverse()`
+ *   ensures pointer → glyph coordinate conversion is correct at any CSS scale.
+ * - Pointer capture keeps drag active when cursor leaves the circle.
+ * - `onDragStart` fires once per drag (on pointerdown) so the parent can
+ *   snapshot the current commands for undo before any movement happens.
+ */
+export declare function GlyphSvgEditor({ commands, font, char, onChange, onDragStart, }: GlyphSvgEditorProps): JSX.Element;
+
+/** Props for the standalone GlyphSvgEditor */
+export declare interface GlyphSvgEditorProps {
+    /** Current path commands to render and edit */
+    commands: PathCommand[];
+    /** Parsed font handle — used to read metrics (ascender, advance width, etc.) */
+    font: GlyphFont;
+    /** Character being edited — used only for metrics lookup, not path data */
+    char: string;
+    /** Called with updated commands after each pointer move during a drag */
+    onChange: (commands: PathCommand[]) => void;
+    /** Called with the pre-drag snapshot on pointerdown — use this for undo */
+    onDragStart: (snapshot: PathCommand[]) => void;
 }
 
 /**

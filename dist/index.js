@@ -459,6 +459,7 @@ function ct({
 }
 export {
   ct as GlyphShaperEditor,
+  ot as GlyphSvgEditor,
   V as applyFontBlob,
   X as commandsToPathD,
   K as fontToBlob,
