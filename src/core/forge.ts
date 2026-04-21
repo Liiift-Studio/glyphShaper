@@ -129,13 +129,41 @@ export function getGlyphCommands(font: GlyphFont, char: string): PathCommand[] {
  * @param char     - Character whose glyph to update
  * @param commands - New path commands (from the editor)
  */
+/** Return the xMin and xMax of a set of path commands using all on/off-curve x coordinates. */
+function pathXBounds(cmds: PathCommand[]): { xMin: number; xMax: number } | null {
+	let xMin = Infinity, xMax = -Infinity
+	for (const cmd of cmds) {
+		if (cmd.type === 'Z') continue
+		const xs = cmd.type === 'C' ? [cmd.x1, cmd.x2, cmd.x] :
+		           cmd.type === 'Q' ? [cmd.x1, cmd.x] :
+		           [cmd.x]
+		for (const x of xs) { if (x < xMin) xMin = x; if (x > xMax) xMax = x }
+	}
+	return xMin === Infinity ? null : { xMin, xMax }
+}
+
 export function setGlyphCommands(font: GlyphFont, char: string, commands: PathCommand[]): void {
 	const idx = font._font.charToGlyphIndex(char)
 	const glyph = font._font.glyphs.get(idx)
 	if (!glyph?.path) return
-	// Cast: opentype.js path.commands accepts the same shape we define in PathCommand
+
+	// Preserve the right-side bearing (whitespace cushion after the ink) before mutating the path.
+	// advanceWidth = path xMax + RSB, so RSB = advanceWidth - xMax.
+	const oldBounds = pathXBounds(glyph.path.commands as PathCommand[])
+	const rsb = oldBounds !== null ? (glyph.advanceWidth ?? 0) - oldBounds.xMax : 0
+
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	glyph.path.commands = commands as any
+
+	// Update hmtx metrics to match the new path extent.
+	// LSB tracks the new left edge; advanceWidth = new right edge + original RSB.
+	if (glyph.advanceWidth !== undefined) {
+		const newBounds = pathXBounds(commands)
+		if (newBounds !== null) {
+			glyph.leftSideBearing = Math.round(newBounds.xMin)
+			glyph.advanceWidth = Math.max(0, Math.round(newBounds.xMax + rsb))
+		}
+	}
 }
 
 // ─── Regenerate ───────────────────────────────────────────────────────────────

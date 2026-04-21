@@ -237,15 +237,6 @@ export declare type PathCommand = CmdM | CmdL | CmdC | CmdQ | CmdZ;
  */
 export declare function revokeFont(url: string): void;
 
-/**
- * Write modified path commands back into the font's glyph.
- * This mutates the font object in place so the next call to fontToBlob()
- * regenerates with these commands applied.
- *
- * @param font     - Parsed font handle (mutated in place)
- * @param char     - Character whose glyph to update
- * @param commands - New path commands (from the editor)
- */
 export declare function setGlyphCommands(font: GlyphFont, char: string, commands: PathCommand[]): void;
 
 /**

@@ -154,4 +154,19 @@ describe('setGlyphCommands', () => {
 		const result = getGlyphCommands(font, 'A')
 		expect(result).toEqual(edited)
 	})
+
+	it('updates advanceWidth and leftSideBearing when path extent changes', () => {
+		// MOCK_COMMANDS: xMin=10, xMax=120, advanceWidth=500 → RSB=380
+		const font = makeMockFont()
+		const glyph = font._font.glyphs.get(65)!
+		// Wider path: xMin=20, xMax=200
+		setGlyphCommands(font, 'A', [
+			{ type: 'M', x: 20, y: 0 },
+			{ type: 'L', x: 200, y: 100 },
+			{ type: 'Z' },
+		])
+		// advanceWidth = new xMax (200) + original RSB (500-120=380) = 580
+		expect(glyph.advanceWidth).toBe(580)
+		expect(glyph.leftSideBearing).toBe(20)
+	})
 })
