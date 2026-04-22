@@ -1,5 +1,7 @@
 # Glyph Shaper
 
+[![npm](https://img.shields.io/npm/v/%40liiift-studio%2Fglyphshaper.svg)](https://www.npmjs.com/package/@liiift-studio/glyphshaper) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![part of liiift type-tools](https://img.shields.io/badge/liiift-type--tools-blueviolet)](https://github.com/Liiift-Studio/type-tools)
+
 CSS and JavaScript have no native way to reshape individual glyph outlines after the font loads. `glyphShaper` parses the font binary in the browser, lets you drag bezier control points to edit any character's outline, then regenerates the font and injects a `@font-face` override — every instance of that character on the page re-renders instantly, no page reload required.
 
 **[glyphshaper.com](https://glyphshaper.com)** · [npm](https://www.npmjs.com/package/@liiift-studio/glyphshaper) · [GitHub](https://github.com/Liiift-Studio/glyphShaper)
