@@ -50,7 +50,7 @@ export default function Home() {
 					<div className="flex flex-col gap-3">
 						<p className="font-semibold opacity-100 text-base">Parse, edit, regenerate</p>
 						<p>glyphShaper uses opentype.js to parse the uploaded font binary into a structured
-						object. Each glyph&apos;s <code className="text-xs font-mono">path.commands</code> array
+						object. Each glyph&rsquo;s <code className="text-xs font-mono">path.commands</code> array
 						— moveTo, lineTo, curveTo, quadraticCurveTo — is exposed as draggable SVG control
 						points. When you hit Apply, the modified font object is serialised back to an
 						ArrayBuffer via <code className="text-xs font-mono">font.toArrayBuffer()</code>.</p>
@@ -74,7 +74,7 @@ export default function Home() {
 					</div>
 					<div className="flex flex-col gap-3">
 						<p className="font-semibold opacity-100 text-base">Ephemeral by design</p>
-						<p>Every edit lives entirely in the browser&apos;s memory. The original font
+						<p>Every edit lives entirely in the browser&rsquo;s memory. The original font
 						file is never written to disk. Refreshing the page resets everything.
 						This makes glyphShaper ideal for live demos, design explorations, and
 						teaching moments — low commitment, instant feedback, no pipeline.</p>
