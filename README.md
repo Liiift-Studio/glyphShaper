@@ -189,4 +189,4 @@ config.resolve.fallback = { ...config.resolve.fallback, fs: false, path: false }
 
 ---
 
-Current version: v1.0.7
+Current version: 1.0.2
