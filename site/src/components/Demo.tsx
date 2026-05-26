@@ -108,8 +108,8 @@ function applyTransform(cmds: PathCommand[], cx: number, adj: Adjustments): Path
 
 // ─── Slider sub-component ────────────────────────────────────────────────────
 
-function AdjSlider({ label, value, min, max, onChange }: {
-	label: string; value: number; min: number; max: number; onChange: (v: number) => void
+function AdjSlider({ label, value, min, max, onChange, title }: {
+	label: string; value: number; min: number; max: number; onChange: (v: number) => void; title?: string
 }) {
 	return (
 		<div className="flex flex-col gap-1">
@@ -120,7 +120,7 @@ function AdjSlider({ label, value, min, max, onChange }: {
 				</span>
 			</div>
 			<input type="range" min={min} max={max} step={1} value={value} aria-label={label}
-				onChange={e => onChange(Number(e.target.value))} className="w-full" />
+				title={title} onChange={e => onChange(Number(e.target.value))} className="w-full" />
 		</div>
 	)
 }
@@ -295,6 +295,7 @@ function Tooltip({
 						<button
 							key={t}
 							onClick={() => setTab(t)}
+							title={t === "adjust" ? "Reshape this glyph using width and stroke-thickness sliders" : "Edit the raw Bézier path points and handles for this glyph"}
 							style={{
 								fontSize: 11, padding: "3px 10px", borderRadius: 20,
 								border: `1px solid ${tab === t ? theme.accent : theme.tabBorder}`,
@@ -312,6 +313,7 @@ function Tooltip({
 				<button
 					onClick={onClose}
 					aria-label="Close"
+					title="Close this glyph editor and deselect the character"
 					style={{
 						fontSize: 16, lineHeight: 1,
 						color: theme.dim, cursor: "pointer",
@@ -327,13 +329,13 @@ function Tooltip({
 			{tab === "adjust" && (
 				<div style={{ padding: "14px 14px 12px" }}>
 					<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-						<AdjSlider label="Width"           value={charAdj.width}     min={-50} max={100} onChange={v => onCharAdjChange("width",     v)} />
-						<AdjSlider label="Shoulders"       value={charAdj.shoulders} min={-80} max={100} onChange={v => onCharAdjChange("shoulders", v)} />
-						<AdjSlider label="Left thickness"  value={charAdj.leftSide}  min={-50} max={100} onChange={v => onCharAdjChange("leftSide",  v)} />
-						<AdjSlider label="Right thickness" value={charAdj.rightSide} min={-50} max={100} onChange={v => onCharAdjChange("rightSide", v)} />
+						<AdjSlider label="Width"           value={charAdj.width}     min={-50} max={100} onChange={v => onCharAdjChange("width",     v)} title="Scale this glyph horizontally around its centre — positive values widen it, negative values condense it" />
+						<AdjSlider label="Shoulders"       value={charAdj.shoulders} min={-80} max={100} onChange={v => onCharAdjChange("shoulders", v)} title="Stretch or compress the Bézier handle offsets — higher values add more curve tension and roundness to this glyph's strokes" />
+						<AdjSlider label="Left thickness"  value={charAdj.leftSide}  min={-50} max={100} onChange={v => onCharAdjChange("leftSide",  v)} title="Thicken or thin the left half of this glyph's strokes independently of the right side" />
+						<AdjSlider label="Right thickness" value={charAdj.rightSide} min={-50} max={100} onChange={v => onCharAdjChange("rightSide", v)} title="Thicken or thin the right half of this glyph's strokes independently of the left side" />
 					</div>
 					<div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
-						<button onClick={onResetCharAdj} style={{ fontSize: 11, color: theme.dim, cursor: "pointer", background: "transparent", border: "none" }}>
+						<button onClick={onResetCharAdj} title="Remove all per-character adjustments and restore this glyph to the global slider values" style={{ fontSize: 11, color: theme.dim, cursor: "pointer", background: "transparent", border: "none" }}>
 							Reset
 						</button>
 					</div>
@@ -356,9 +358,9 @@ function Tooltip({
 						onDragStart={onBezierDragStart}
 					/>
 					<div style={{ display: "flex", gap: 6, padding: "8px 10px 10px", borderTop: `1px solid ${theme.divider}` }}>
-						<button onClick={onBezierCancel} style={btn(false)}>Cancel</button>
-						<button onClick={onBezierUndo} disabled={!canUndo} style={btn(false, !canUndo)}>Undo</button>
-						<button onClick={onBezierApply} style={{ ...btn(true), marginLeft: "auto" }}>Apply to page</button>
+						<button onClick={onBezierCancel} title="Discard all unsaved path edits and revert to the last applied state" style={btn(false)}>Cancel</button>
+						<button onClick={onBezierUndo} disabled={!canUndo} title="Undo the last path point or handle drag (Cmd/Ctrl+Z)" style={btn(false, !canUndo)}>Undo</button>
+						<button onClick={onBezierApply} title="Bake these path edits into the glyph and update the live text on the page" style={{ ...btn(true), marginLeft: "auto" }}>Apply to page</button>
 					</div>
 				</div>
 			)}
@@ -696,9 +698,9 @@ export default function Demo() {
 				{fileName && !loading && fileName !== DEFAULT_FONT_NAME && (
 					<p className="text-xs opacity-40 font-mono">{fileName}</p>
 				)}
-				<label className="text-xs px-4 py-2 rounded-full border border-white/30 cursor-pointer hover:bg-white/5 transition-colors">
+				<label title="Upload a TTF, OTF, WOFF, or WOFF2 file to replace the current demo font" className="text-xs px-4 py-2 rounded-full border border-white/30 cursor-pointer hover:bg-white/5 transition-colors">
 					{font ? "Swap font" : "Choose TTF / OTF / WOFF / WOFF2"}
-					<input type="file" accept={ACCEPT} onChange={handleInputChange} className="sr-only" aria-label="Upload a font file" />
+					<input type="file" accept={ACCEPT} onChange={handleInputChange} className="sr-only" aria-label="Upload a font file" title="Upload a TTF, OTF, WOFF, or WOFF2 font file to use in the demo" />
 				</label>
 			</div>
 
@@ -722,10 +724,10 @@ export default function Demo() {
 				<>
 					{/* Global adjustment sliders */}
 					<div className="grid grid-cols-2 sm:grid-cols-4 gap-6 mb-8">
-						<AdjSlider label="Width"           value={globalAdj.width}     min={-50} max={100} onChange={v => handleGlobalAdjChange("width",     v)} />
-						<AdjSlider label="Shoulders"       value={globalAdj.shoulders} min={-80} max={100} onChange={v => handleGlobalAdjChange("shoulders", v)} />
-						<AdjSlider label="Left thickness"  value={globalAdj.leftSide}  min={-50} max={100} onChange={v => handleGlobalAdjChange("leftSide",  v)} />
-						<AdjSlider label="Right thickness" value={globalAdj.rightSide} min={-50} max={100} onChange={v => handleGlobalAdjChange("rightSide", v)} />
+						<AdjSlider label="Width"           value={globalAdj.width}     min={-50} max={100} onChange={v => handleGlobalAdjChange("width",     v)} title="Scale every glyph horizontally around its centre — positive values widen all characters, negative values condense them" />
+						<AdjSlider label="Shoulders"       value={globalAdj.shoulders} min={-80} max={100} onChange={v => handleGlobalAdjChange("shoulders", v)} title="Globally stretch or compress Bézier handle distances — higher values make all curves rounder and more swollen" />
+						<AdjSlider label="Left thickness"  value={globalAdj.leftSide}  min={-50} max={100} onChange={v => handleGlobalAdjChange("leftSide",  v)} title="Globally thicken or thin the left-side strokes of every glyph" />
+						<AdjSlider label="Right thickness" value={globalAdj.rightSide} min={-50} max={100} onChange={v => handleGlobalAdjChange("rightSide", v)} title="Globally thicken or thin the right-side strokes of every glyph" />
 					</div>
 
 					{/* Two editorial paragraphs */}
@@ -736,7 +738,7 @@ export default function Demo() {
 
 					{/* Reset global */}
 					<div className="flex justify-end mt-4">
-						<button onClick={resetGlobalAdj} className="text-xs opacity-30 hover:opacity-60 transition-opacity">
+						<button onClick={resetGlobalAdj} title="Clear all global slider adjustments and restore every glyph to its original shape" className="text-xs opacity-30 hover:opacity-60 transition-opacity">
 							Reset all
 						</button>
 					</div>
