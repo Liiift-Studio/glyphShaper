@@ -33,7 +33,7 @@
 			"optional": false
 		},
 		"wawoff2": {
-			"optional": false
+			"optional": true
 		},
 		"react": {
 			"optional": true

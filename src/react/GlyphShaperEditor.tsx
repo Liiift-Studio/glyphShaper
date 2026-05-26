@@ -5,7 +5,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import type { PathCommand } from '../core/types'
 import type { GlyphFont } from '../core/forge'
-import { getGlyphCommands, setGlyphCommands, fontToBlob, applyFontBlob, commandsToPathD } from '../core/forge'
+import { getGlyphCommands, setGlyphCommands, fontToBlob, applyFontBlob, revokeFont, commandsToPathD } from '../core/forge'
 
 // ─── SVG coordinate constants ──────────────────────────────────────────────────
 
@@ -316,6 +316,9 @@ export function GlyphSvgEditor({
 				return (
 					<circle
 						key={i}
+						role="button"
+						aria-label={`${pt.kind === 'anchor' ? 'Anchor' : 'Handle'} point ${i + 1} of ${dragPoints.length}`}
+						tabIndex={0}
 						cx={cx} cy={cy} r={r}
 						fill={pt.kind === 'anchor' ? 'rgba(212,184,240,0.9)' : 'rgba(0,0,0,0)'}
 						stroke="rgba(212,184,240,0.75)"
@@ -433,6 +436,16 @@ export function GlyphShaperEditor({
 
 	const chars   = uniquePrintableChars(text)
 	const canUndo = history.length > 0
+
+	// Revoke any active Blob URL when the component unmounts to free font binary memory
+	useEffect(() => {
+		return () => {
+			if (appliedUrlRef.current) {
+				revokeFont(appliedUrlRef.current)
+				appliedUrlRef.current = null
+			}
+		}
+	}, [])
 
 	// Keep editingCharRef in sync
 	useEffect(() => { editingCharRef.current = editingChar }, [editingChar])
