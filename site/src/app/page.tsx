@@ -166,8 +166,16 @@ const url = applyFontBlob('MyFont', fontToBlob(font))
 									<td className="py-2">Revoke the Blob URL and remove the override style element.</td>
 								</tr>
 								<tr className="border-t border-white/10 hover:bg-white/5 transition-colors">
+									<td className="py-2 pr-6 font-mono">commandsToPathD(cmds)</td>
+									<td className="py-2">Convert a PathCommand[] to an SVG path <code className="font-mono">d</code> string for use in a <code className="font-mono">&lt;path&gt;</code> element.</td>
+								</tr>
+								<tr className="border-t border-white/10 hover:bg-white/5 transition-colors">
 									<td className="py-2 pr-6 font-mono">useGlyphFont(source)</td>
 									<td className="py-2">React hook — accepts a URL string or File; returns {'{font, loading, error}'}.</td>
+								</tr>
+								<tr className="border-t border-white/10 hover:bg-white/5 transition-colors">
+									<td className="py-2 pr-6 font-mono">GlyphSvgEditor</td>
+									<td className="py-2">Lower-level React component exposing just the SVG bezier editor. Use when you want to manage font loading and state yourself.</td>
 								</tr>
 							</tbody>
 						</table>

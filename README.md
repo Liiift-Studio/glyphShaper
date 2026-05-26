@@ -144,6 +144,10 @@ Revokes a Blob URL returned by `applyFontBlob` and removes the corresponding `<s
 
 Converts a `PathCommand[]` to an SVG `d` string suitable for use in a `<path>` element.
 
+### `GlyphSvgEditor`
+
+Lower-level React component that exposes only the SVG bezier editor. Use this when you want to manage font loading and command state yourself. Accepts `GlyphSvgEditorProps` — see source types for the full prop list.
+
 ---
 
 ## `GlyphShaperEditor` props
@@ -189,4 +193,4 @@ config.resolve.fallback = { ...config.resolve.fallback, fs: false, path: false }
 
 ---
 
-Current version: 1.0.2
+Current version: 1.0.9
