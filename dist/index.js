@@ -1,12 +1,12 @@
-import { useState as D, useEffect as R, useRef as M, useCallback as N } from "react";
-import { jsxs as T, jsx as f } from "react/jsx-runtime";
-const Q = 2001684018;
-function A(t) {
-  return t.byteLength < 4 ? !1 : new DataView(t).getUint32(0, !1) === Q;
+import { useState as D, useEffect as T, useRef as C, useCallback as A } from "react";
+import { jsxs as M, jsx as f } from "react/jsx-runtime";
+const N = 2001684018;
+function Q(t) {
+  return t.byteLength < 4 ? !1 : new DataView(t).getUint32(0, !1) === N;
 }
 async function X(t, n) {
   let o = t;
-  if (A(t)) {
+  if (Q(t)) {
     if (!n)
       throw new Error(
         "[glyphshaper] WOFF2 input requires a woff2Decompressor. Pass one to parseFont(), or convert the font to TTF / OTF / WOFF first."
@@ -70,11 +70,11 @@ function K(t, n, o, r = {}) {
   ].join(`
 `), document.head.appendChild(a), e;
 }
-function lt(t) {
+function V(t) {
   var n;
   URL.revokeObjectURL(t), (n = document.getElementById(_)) == null || n.remove();
 }
-function V(t) {
+function q(t) {
   return t.map((n) => {
     switch (n.type) {
       case "M":
@@ -96,7 +96,7 @@ function ct(t) {
     loading: !1,
     error: null
   });
-  return R(() => {
+  return T(() => {
     if (!t) {
       o({ font: null, loading: !1, error: null });
       return;
@@ -132,20 +132,20 @@ function ct(t) {
     typeof t == "string" ? t : t ? `${t.name}:${t.size}` : null
   ]), n;
 }
-const $ = 360, x = 32, q = 7, J = 5, H = 50;
+const I = 360, g = 32, J = 7, tt = 5, H = 50;
 function B(t, n, o, r, e) {
   return [
-    x + (t - r) * o,
-    x + (e - n) * o
+    g + (t - r) * o,
+    g + (e - n) * o
   ];
 }
-function tt(t, n, o, r, e) {
+function nt(t, n, o, r, e) {
   return [
-    (t - x) / o + r,
-    e - (n - x) / o
+    (t - g) / o + r,
+    e - (n - g) / o
   ];
 }
-function nt(t) {
+function et(t) {
   const n = [];
   for (let o = 0; o < t.length; o++) {
     const r = t[o];
@@ -153,56 +153,56 @@ function nt(t) {
   }
   return n;
 }
-function et(t) {
+function rt(t) {
   const n = [];
   let o = 0, r = 0;
   for (const e of t)
     e.type === "M" || e.type === "L" ? (o = e.x, r = e.y) : e.type === "C" ? (n.push({ x1: o, y1: r, x2: e.x1, y2: e.y1 }), n.push({ x1: e.x2, y1: e.y2, x2: e.x, y2: e.y }), o = e.x, r = e.y) : e.type === "Q" && (n.push({ x1: o, y1: r, x2: e.x1, y2: e.y1 }), n.push({ x1: e.x1, y1: e.y1, x2: e.x, y2: e.y }), o = e.x, r = e.y);
   return n;
 }
-function rt(t, n, o, r, e) {
+function ot(t, n, o, r, e) {
   const i = Math.round(r), l = Math.round(e);
   return t.map((a, u) => u !== n ? a : o === "xy" && (a.type === "M" || a.type === "L") ? { ...a, x: i, y: l } : o === "xy" && (a.type === "C" || a.type === "Q") ? { ...a, x: i, y: l } : o === "x1y1" && (a.type === "C" || a.type === "Q") ? { ...a, x1: i, y1: l } : o === "x2y2" && a.type === "C" ? { ...a, x2: i, y2: l } : a);
 }
-function ot(t) {
+function it(t) {
   const n = /* @__PURE__ */ new Set();
   return t.split("").filter((o) => !o.trim() || n.has(o) ? !1 : (n.add(o), !0));
 }
-function it({
+function at({
   commands: t,
   font: n,
   char: o,
   onChange: r,
   onDragStart: e
 }) {
-  const i = M(null), l = M(null), a = n._font, u = a.charToGlyphIndex(o), h = a.glyphs.get(u), g = (h == null ? void 0 : h.leftSideBearing) ?? 0, k = (h == null ? void 0 : h.advanceWidth) ?? a.unitsPerEm, y = a.ascender, v = a.descender, C = k, L = y - v, E = $ - 2 * x, d = Math.min(E / C, E / L), I = x + y * d, F = N((s) => {
-    const b = i.current;
-    if (!b) return [0, 0];
-    const m = b.getScreenCTM();
+  const i = C(null), l = C(null), a = n._font, u = a.charToGlyphIndex(o), h = a.glyphs.get(u), b = (h == null ? void 0 : h.leftSideBearing) ?? 0, k = (h == null ? void 0 : h.advanceWidth) ?? a.unitsPerEm, y = a.ascender, v = a.descender, w = k, L = y - v, E = I - 2 * g, d = Math.min(E / w, E / L), S = g + y * d, F = A((s) => {
+    const x = i.current;
+    if (!x) return [0, 0];
+    const m = x.getScreenCTM();
     if (!m) return [0, 0];
-    const w = b.createSVGPoint();
-    w.x = s.clientX, w.y = s.clientY;
-    const S = w.matrixTransform(m.inverse());
-    return tt(S.x, S.y, d, g, y);
-  }, [d, g, y]);
-  function P(s, b, m) {
-    s.stopPropagation(), s.target.setPointerCapture(s.pointerId), e(t), l.current = { cmdIdx: b, field: m };
+    const $ = x.createSVGPoint();
+    $.x = s.clientX, $.y = s.clientY;
+    const R = $.matrixTransform(m.inverse());
+    return nt(R.x, R.y, d, b, y);
+  }, [d, b, y]);
+  function P(s, x, m) {
+    s.stopPropagation(), s.target.setPointerCapture(s.pointerId), e(t), l.current = { cmdIdx: x, field: m };
   }
   function G(s) {
     if (!l.current) return;
-    const [b, m] = F(s);
-    r(rt(t, l.current.cmdIdx, l.current.field, b, m));
+    const [x, m] = F(s);
+    r(ot(t, l.current.cmdIdx, l.current.field, x, m));
   }
   function W() {
     l.current = null;
   }
-  const O = V(t), c = nt(t), p = et(t);
-  return /* @__PURE__ */ T(
+  const O = q(t), c = et(t), p = rt(t);
+  return /* @__PURE__ */ M(
     "svg",
     {
       ref: i,
       width: "100%",
-      viewBox: `0 0 ${$} ${$}`,
+      viewBox: `0 0 ${I} ${I}`,
       onPointerMove: G,
       onPointerUp: W,
       onPointerLeave: W,
@@ -218,30 +218,30 @@ function it({
         /* @__PURE__ */ f(
           "line",
           {
-            x1: x / 2,
-            y1: I,
-            x2: $ - x / 2,
-            y2: I,
+            x1: g / 2,
+            y1: S,
+            x2: I - g / 2,
+            y2: S,
             stroke: "rgba(255,255,255,0.08)",
             strokeWidth: 1
           }
         ),
         (() => {
-          const [s] = B(k, 0, d, g, y);
+          const [s] = B(k, 0, d, b, y);
           return /* @__PURE__ */ f(
             "line",
             {
               x1: s,
-              y1: x / 2,
+              y1: g / 2,
               x2: s,
-              y2: $ - x / 2,
+              y2: I - g / 2,
               stroke: "rgba(255,255,255,0.08)",
               strokeWidth: 1,
               strokeDasharray: "4 4"
             }
           );
         })(),
-        /* @__PURE__ */ f("g", { transform: `translate(${x + (0 - g) * d}, ${x + y * d}) scale(${d}, ${-d})`, children: t.length > 0 && /* @__PURE__ */ f(
+        /* @__PURE__ */ f("g", { transform: `translate(${g + (0 - b) * d}, ${g + y * d}) scale(${d}, ${-d})`, children: t.length > 0 && /* @__PURE__ */ f(
           "path",
           {
             d: O,
@@ -251,44 +251,47 @@ function it({
             fillRule: "nonzero"
           }
         ) }),
-        p.map((s, b) => {
-          const [m, w] = B(s.x1, s.y1, d, g, y), [S, U] = B(s.x2, s.y2, d, g, y);
+        p.map((s, x) => {
+          const [m, $] = B(s.x1, s.y1, d, b, y), [R, U] = B(s.x2, s.y2, d, b, y);
           return /* @__PURE__ */ f(
             "line",
             {
               x1: m,
-              y1: w,
-              x2: S,
+              y1: $,
+              x2: R,
               y2: U,
               stroke: "rgba(255,255,255,0.18)",
               strokeWidth: 1,
               strokeDasharray: "3 3"
             },
-            b
+            x
           );
         }),
-        c.map((s, b) => {
-          const [m, w] = B(s.x, s.y, d, g, y), S = s.kind === "anchor" ? q : J;
+        c.map((s, x) => {
+          const [m, $] = B(s.x, s.y, d, b, y), R = s.kind === "anchor" ? J : tt;
           return /* @__PURE__ */ f(
             "circle",
             {
+              role: "button",
+              "aria-label": `${s.kind === "anchor" ? "Anchor" : "Handle"} point ${x + 1} of ${c.length}`,
+              tabIndex: 0,
               cx: m,
-              cy: w,
-              r: S,
+              cy: $,
+              r: R,
               fill: s.kind === "anchor" ? "rgba(212,184,240,0.9)" : "rgba(0,0,0,0)",
               stroke: "rgba(212,184,240,0.75)",
               strokeWidth: 1.5,
               style: { cursor: "grab" },
               onPointerDown: (U) => P(U, s.cmdIdx, s.field)
             },
-            b
+            x
           );
         }),
         t.length === 0 && /* @__PURE__ */ f(
           "text",
           {
-            x: $ / 2,
-            y: $ / 2,
+            x: I / 2,
+            y: I / 2,
             textAnchor: "middle",
             fill: "rgba(255,255,255,0.3)",
             fontSize: 12,
@@ -310,15 +313,17 @@ function ut({
   onApply: l,
   hidePalette: a = !1
 }) {
-  const [u, h] = D(null), [g, k] = D([]), [y, v] = D([]), C = M(null), L = M(null), E = ot(o), d = y.length > 0;
-  R(() => {
+  const [u, h] = D(null), [b, k] = D([]), [y, v] = D([]), w = C(null), L = C(null), E = it(o), d = y.length > 0;
+  T(() => () => {
+    w.current && (V(w.current), w.current = null);
+  }, []), T(() => {
     L.current = u;
-  }, [u]), R(() => {
+  }, [u]), T(() => {
     if (e === void 0 || !t) return;
     const c = L.current;
     e === null ? c !== null && (h(null), k([]), v([])) : e !== c && (k(z(t, e)), h(e), v([]));
   }, [e, t]);
-  function I() {
+  function S() {
     if (y.length === 0) return;
     const c = y[y.length - 1];
     v((p) => p.slice(0, -1)), k(c);
@@ -329,10 +334,10 @@ function ut({
       return s.length > H ? s.slice(-H) : s;
     });
   }
-  const P = M(I);
-  R(() => {
-    P.current = I;
-  }), R(() => {
+  const P = C(S);
+  T(() => {
+    P.current = S;
+  }), T(() => {
     if (!u) return;
     function c(p) {
       (p.metaKey || p.ctrlKey) && !p.shiftKey && p.key === "z" && (p.preventDefault(), P.current());
@@ -347,11 +352,11 @@ function ut({
   }
   function O() {
     if (!t || !u) return;
-    Y(t, u, g);
-    const c = Z(t), p = K(n, c, C.current ?? void 0);
-    C.current = p, l == null || l(u, [...g]), h(null), k([]), v([]), i == null || i();
+    Y(t, u, b);
+    const c = Z(t), p = K(n, c, w.current ?? void 0);
+    w.current = p, l == null || l(u, [...b]), h(null), k([]), v([]), i == null || i();
   }
-  return /* @__PURE__ */ T("div", { children: [
+  return /* @__PURE__ */ M("div", { children: [
     (r != null || !a) && /* @__PURE__ */ f("div", { style: { fontFamily: n }, children: r ?? /* @__PURE__ */ f("p", { children: o }) }),
     t && !a && /* @__PURE__ */ f(
       "div",
@@ -385,7 +390,7 @@ function ut({
         ))
       }
     ),
-    u && t && /* @__PURE__ */ T(
+    u && t && /* @__PURE__ */ M(
       "div",
       {
         style: {
@@ -395,22 +400,22 @@ function ut({
           borderRadius: 8
         },
         children: [
-          /* @__PURE__ */ T("p", { style: { fontSize: 11, opacity: 0.5, marginBottom: 12, fontFamily: "sans-serif" }, children: [
+          /* @__PURE__ */ M("p", { style: { fontSize: 11, opacity: 0.5, marginBottom: 12, fontFamily: "sans-serif" }, children: [
             "Editing “",
             u,
             "” — drag filled circles (anchors) or outlined circles (handles) to reshape"
           ] }),
           /* @__PURE__ */ f(
-            it,
+            at,
             {
-              commands: g,
+              commands: b,
               font: t,
               char: u,
               onChange: k,
               onDragStart: F
             }
           ),
-          /* @__PURE__ */ T("div", { style: { display: "flex", gap: 8, marginTop: 12, alignItems: "center" }, children: [
+          /* @__PURE__ */ M("div", { style: { display: "flex", gap: 8, marginTop: 12, alignItems: "center" }, children: [
             /* @__PURE__ */ f(
               "button",
               {
@@ -431,7 +436,7 @@ function ut({
             /* @__PURE__ */ f(
               "button",
               {
-                onClick: I,
+                onClick: S,
                 disabled: !d,
                 title: "Undo last drag (Ctrl+Z / Cmd+Z)",
                 style: {
@@ -474,13 +479,13 @@ function ut({
 }
 export {
   ut as GlyphShaperEditor,
-  it as GlyphSvgEditor,
+  at as GlyphSvgEditor,
   K as applyFontBlob,
-  V as commandsToPathD,
+  q as commandsToPathD,
   Z as fontToBlob,
   z as getGlyphCommands,
   X as parseFont,
-  lt as revokeFont,
+  V as revokeFont,
   Y as setGlyphCommands,
   ct as useGlyphFont
 };
