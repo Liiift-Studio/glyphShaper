@@ -4,7 +4,6 @@
 	"description": "Interactive glyph path editor — click any character, reshape its bezier curves, and watch every instance on the page update instantly",
 	"type": "module",
 	"main": "dist/index.cjs",
-	"module": "dist/index.js",
 	"types": "dist/index.d.ts",
 	"exports": {
 		".": {
@@ -30,7 +29,7 @@
 	},
 	"peerDependenciesMeta": {
 		"opentype.js": {
-			"optional": false
+			"optional": true
 		},
 		"wawoff2": {
 			"optional": true
@@ -76,7 +75,6 @@
 		"variable-font",
 		"woff2",
 		"interactive",
-		"zero-dependencies",
 		"react",
 		"typescript",
 		"css"
@@ -91,7 +89,7 @@
 	"bugs": {
 		"url": "https://github.com/Liiift-Studio/glyphShaper/issues"
 	},
-	"sideEffects": false,
+	"sideEffects": ["./dist/index.js", "./dist/index.cjs"],
 	"publishConfig": {
 		"access": "public"
 	}

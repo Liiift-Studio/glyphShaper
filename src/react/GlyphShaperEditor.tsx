@@ -226,6 +226,8 @@ export function GlyphSvgEditor({
 		cmdIdx: number,
 		field: 'xy' | 'x1y1' | 'x2y2',
 	) {
+		// Ignore secondary touch points (multi-touch) to prevent duplicate drag-starts
+		if (!e.isPrimary) return
 		e.stopPropagation()
 		;(e.target as SVGCircleElement).setPointerCapture(e.pointerId)
 		// Snapshot current commands BEFORE the drag — this is one undo step
@@ -497,6 +499,10 @@ export function GlyphShaperEditor({
 	useEffect(() => {
 		if (!editingChar) return
 		function onKeyDown(e: KeyboardEvent) {
+			// Do not intercept Ctrl+Z when focus is inside a text input or textarea —
+			// that would swallow native undo in form fields on the same page.
+			const tag = (e.target as HTMLElement | null)?.tagName
+			if (tag === 'INPUT' || tag === 'TEXTAREA') return
 			if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'z') {
 				e.preventDefault()
 				undoRef.current()

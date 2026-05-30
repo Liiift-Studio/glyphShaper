@@ -19,9 +19,9 @@ export interface GlyphFontState {
 /**
  * Load and parse a font from a URL or a File object.
  *
- * - Pass a URL string to fetch over HTTP (must be TTF or OTF — not WOFF2,
- *   which is brotli-compressed and not parseable by opentype.js without a
- *   separate decoder).
+ * - Pass a URL string to fetch over HTTP (TTF, OTF, or WOFF1 — not WOFF2,
+ *   because this hook does not accept a woff2Decompressor parameter;
+ *   use parseFont() directly if you need WOFF2 support).
  * - Pass a File object for user-uploaded fonts (any TTF, OTF, or WOFF1).
  * - Pass null to reset to idle state.
  *

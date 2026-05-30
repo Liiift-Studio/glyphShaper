@@ -16,9 +16,6 @@ export default defineConfig({
 		},
 		rollupOptions: {
 			external: ['react', 'react-dom', 'react/jsx-runtime', 'opentype.js', 'wawoff2'],
-			output: {
-				globals: { react: 'React', 'react-dom': 'ReactDOM' },
-			},
 		},
 	},
 })

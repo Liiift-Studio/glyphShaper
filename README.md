@@ -6,17 +6,23 @@ CSS and JavaScript have no native way to reshape individual glyph outlines after
 
 **[glyphshaper.com](https://glyphshaper.com)** · [npm](https://www.npmjs.com/package/@liiift-studio/glyphshaper) · [GitHub](https://github.com/Liiift-Studio/glyphShaper)
 
-TypeScript · React · Requires `opentype.js` + `wawoff2`
+TypeScript · React · Requires `opentype.js` (peer dep) · Optional: `wawoff2` for WOFF2 support
 
 ---
 
 ## Install
 
 ```bash
-npm install @liiift-studio/glyphshaper opentype.js wawoff2
+npm install @liiift-studio/glyphshaper opentype.js
 ```
 
-`opentype.js` and `wawoff2` are required peer dependencies — they handle font parsing and WOFF2 decompression respectively and must be installed alongside this package.
+`opentype.js` is a required peer dependency and must be installed alongside this package.
+
+`wawoff2` is an **optional** peer dependency needed only when working with WOFF2 fonts. Install it if you need to pass a WOFF2 buffer to `parseFont()`:
+
+```bash
+npm install wawoff2
+```
 
 ---
 
@@ -116,9 +122,14 @@ React hook. Fetches and parses a font from a URL string or `File` object. Return
 |-----------|------|-------------|
 | `source` | `string \| File \| null` | Font URL, user-uploaded `File`, or `null` to reset |
 
-### `parseFont(buffer)`
+### `parseFont(buffer, woff2Decompressor?)`
 
-Async. Parses an `ArrayBuffer` (TTF, OTF, WOFF1, or WOFF2) into a `GlyphFont` handle. WOFF2 is transparently decompressed via wawoff2 before being handed to opentype.js.
+Async. Parses an `ArrayBuffer` (TTF, OTF, or WOFF1) into a `GlyphFont` handle. For WOFF2 input, you must provide a `woff2Decompressor` function — WOFF2 decompression is not automatic. Without one, parsing a WOFF2 buffer throws with a descriptive error.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `buffer` | `ArrayBuffer` | Raw font bytes |
+| `woff2Decompressor` | `Woff2Decompressor \| undefined` | Optional decompressor for WOFF2 input (see `Woff2Decompressor` type) |
 
 ### `getGlyphCommands(font, char)`
 
@@ -132,9 +143,16 @@ Writes modified commands back into the font object in place. The change takes ef
 
 Serialises the (possibly modified) font back to an `ArrayBuffer` using opentype.js's download path.
 
-### `applyFontBlob(fontFamily, blob, previousUrl?)`
+### `applyFontBlob(fontFamily, blob, previousUrl?, options?)`
 
 Injects a `@font-face` override rule targeting `fontFamily` with the supplied blob. Creates a Blob URL, appends a `<style>` tag to the document, and returns the Blob URL so it can be revoked later. If `previousUrl` is supplied it is revoked before the new rule is injected.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `fontFamily` | `string` | CSS font-family value to override |
+| `blob` | `Blob` | Font data from `fontToBlob()` |
+| `previousUrl` | `string \| undefined` | Blob URL from a previous call to revoke |
+| `options` | `GlyphShaperOptions \| undefined` | `fontWeight` and `fontStyle` for the `@font-face` descriptor |
 
 ### `revokeFont(url)`
 
@@ -158,6 +176,10 @@ Lower-level React component that exposes only the SVG bezier editor. Use this wh
 | `fontFamily` | `string` | — | CSS font-family name the `@font-face` override will target |
 | `text` | `string` | `'Typography'` | Text used to derive the character palette. Unique printable characters appear as clickable tiles |
 | `children` | `ReactNode` | — | Content rendered with the font applied. If omitted, `text` is rendered as a paragraph |
+| `selectedChar` | `string \| null \| undefined` | `undefined` | Controlled selected character. Pass `null` to close the editor programmatically. Omit for uncontrolled mode |
+| `onClose` | `() => void` | — | Called when the editor closes (Cancel or after Apply). Use this to reset `selectedChar` in the parent |
+| `onApply` | `(char: string, commands: PathCommand[]) => void` | — | Called after "Apply to page" with the edited character and its new commands |
+| `hidePalette` | `boolean` | `false` | Hide the character tile palette row (useful when selection is driven externally) |
 
 ---
 
@@ -177,12 +199,11 @@ Lower-level React component that exposes only the SVG bezier editor. Use this wh
 
 ## Peer dependencies
 
-Both peer dependencies are **required** (not optional):
-
-| Package | Purpose |
-|---------|---------|
-| `opentype.js` | Font parsing, glyph path access, and font serialisation |
-| `wawoff2` | WOFF2 decompression (WASM brotli) — only loaded when a WOFF2 font is used |
+| Package | Required? | Purpose |
+|---------|-----------|---------|
+| `opentype.js` | Yes | Font parsing, glyph path access, and font serialisation |
+| `wawoff2` | Optional | WOFF2 decompression (WASM brotli) — only needed when passing a WOFF2 buffer to `parseFont()` |
+| `react` / `react-dom` | Optional | Only needed for `GlyphShaperEditor`, `GlyphSvgEditor`, and `useGlyphFont` |
 
 If you are bundling for the browser and your bundler tries to resolve Node.js built-ins (`fs`, `path`) pulled in by `wawoff2`, stub them as empty modules. For webpack / Next.js:
 

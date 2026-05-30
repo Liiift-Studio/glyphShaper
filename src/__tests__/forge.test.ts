@@ -1,10 +1,14 @@
 // glyphShaper/src/__tests__/forge.test.ts — unit tests for core forge functions
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
 	commandsToPathD,
 	getGlyphCommands,
 	setGlyphCommands,
+	fontToBlob,
+	applyFontBlob,
+	revokeFont,
+	parseFont,
 } from '../core/forge'
 import type { GlyphFont } from '../core/forge'
 import type { PathCommand } from '../core/types'
@@ -22,8 +26,12 @@ const MOCK_COMMANDS: PathCommand[] = [
 
 /** Create a minimal GlyphFont mock whose single glyph has MOCK_COMMANDS.
  *  glyphs.get() always returns the SAME glyph object so mutations via
- *  setGlyphCommands are visible to subsequent reads. */
-function makeMockFont(commands: PathCommand[] = MOCK_COMMANDS): GlyphFont {
+ *  setGlyphCommands are visible to subsequent reads.
+ *  charMap allows simulating different glyphs per character for routing tests. */
+function makeMockFont(
+	commands: PathCommand[] = MOCK_COMMANDS,
+	charMap?: Record<string, number>,
+): GlyphFont {
 	// Single shared glyph instance — mutations are visible across calls
 	const glyph = {
 		path: { commands: commands.map(c => ({ ...c })) as PathCommand[] },
@@ -32,8 +40,24 @@ function makeMockFont(commands: PathCommand[] = MOCK_COMMANDS): GlyphFont {
 	}
 	return {
 		_font: {
-			charToGlyphIndex: (_char: string) => 65,
+			charToGlyphIndex: (char: string) => charMap ? (charMap[char] ?? 65) : 65,
 			glyphs: { get: (_idx: number) => glyph },
+		} as unknown as GlyphFont['_font'],
+	}
+}
+
+/** Minimal mock of a GlyphFont whose toArrayBuffer() returns a small buffer */
+function makeMockFontWithBuffer(): GlyphFont {
+	const glyph = {
+		path: { commands: MOCK_COMMANDS.map(c => ({ ...c })) as PathCommand[] },
+		leftSideBearing: 0,
+		advanceWidth: 500,
+	}
+	return {
+		_font: {
+			charToGlyphIndex: () => 65,
+			glyphs: { get: () => glyph },
+			toArrayBuffer: () => new ArrayBuffer(4),
 		} as unknown as GlyphFont['_font'],
 	}
 }
@@ -168,5 +192,197 @@ describe('setGlyphCommands', () => {
 		// advanceWidth = new xMax (200) + original RSB (500-120=380) = 580
 		expect(glyph.advanceWidth).toBe(580)
 		expect(glyph.leftSideBearing).toBe(20)
+	})
+
+	it('handles narrower path — advanceWidth shrinks', () => {
+		// MOCK_COMMANDS: xMin=10, xMax=120, advanceWidth=500 → RSB=380
+		const font = makeMockFont()
+		const glyph = font._font.glyphs.get(65)!
+		// Narrower path: xMin=5, xMax=60
+		setGlyphCommands(font, 'A', [
+			{ type: 'M', x: 5, y: 0 },
+			{ type: 'L', x: 60, y: 100 },
+			{ type: 'Z' },
+		])
+		// advanceWidth = 60 + 380 = 440
+		expect(glyph.advanceWidth).toBe(440)
+		expect(glyph.leftSideBearing).toBe(5)
+	})
+
+	it('handles negative x coordinates (negative LSB)', () => {
+		const font = makeMockFont()
+		const glyph = font._font.glyphs.get(65)!
+		setGlyphCommands(font, 'A', [
+			{ type: 'M', x: -20, y: 0 },
+			{ type: 'L', x: 80, y: 100 },
+			{ type: 'Z' },
+		])
+		expect(glyph.leftSideBearing).toBe(-20)
+	})
+
+	it('is a no-op for all-Z commands (null bounds path)', () => {
+		const font = makeMockFont()
+		const glyph = font._font.glyphs.get(65)!
+		const originalAdvance = glyph.advanceWidth
+		setGlyphCommands(font, 'A', [{ type: 'Z' }])
+		// bounds are null — advanceWidth should be unchanged
+		expect(glyph.advanceWidth).toBe(originalAdvance)
+	})
+
+	it('skips metric update when glyph.advanceWidth is undefined', () => {
+		const glyph = {
+			path: { commands: MOCK_COMMANDS.map(c => ({ ...c })) as PathCommand[] },
+			leftSideBearing: 0,
+			advanceWidth: undefined as unknown as number,
+		}
+		const font: GlyphFont = {
+			_font: {
+				charToGlyphIndex: () => 65,
+				glyphs: { get: () => glyph },
+			} as unknown as GlyphFont['_font'],
+		}
+		// Should not throw and should not change advanceWidth
+		expect(() => setGlyphCommands(font, 'A', [
+			{ type: 'M', x: 0, y: 0 }, { type: 'L', x: 100, y: 0 }, { type: 'Z' },
+		])).not.toThrow()
+	})
+
+	it('returns empty array when glyphs.get() returns null', () => {
+		const font: GlyphFont = {
+			_font: {
+				charToGlyphIndex: () => 99,
+				glyphs: { get: () => null },
+			} as unknown as GlyphFont['_font'],
+		}
+		expect(getGlyphCommands(font, 'X')).toEqual([])
+	})
+})
+
+// ─── fontToBlob ───────────────────────────────────────────────────────────────
+
+describe('fontToBlob', () => {
+	it('returns a Blob with font/opentype MIME type', () => {
+		const font = makeMockFontWithBuffer()
+		const blob = fontToBlob(font)
+		expect(blob).toBeInstanceOf(Blob)
+		expect(blob.type).toBe('font/opentype')
+	})
+
+	it('blob size matches the buffer byte length', () => {
+		const font = makeMockFontWithBuffer()
+		const blob = fontToBlob(font)
+		expect(blob.size).toBe(4)
+	})
+})
+
+// ─── applyFontBlob / revokeFont ───────────────────────────────────────────────
+
+describe('applyFontBlob', () => {
+	let createdUrls: string[] = []
+
+	beforeEach(() => {
+		// Reset DOM
+		document.head.innerHTML = ''
+		createdUrls = []
+
+		// Stub URL methods
+		let counter = 0
+		vi.stubGlobal('URL', {
+			createObjectURL: (_blob: Blob) => {
+				const url = `blob:mock-${++counter}`
+				createdUrls.push(url)
+				return url
+			},
+			revokeObjectURL: vi.fn(),
+		})
+	})
+
+	afterEach(() => {
+		vi.unstubAllGlobals()
+	})
+
+	it('appends a <style> element to document.head', () => {
+		const blob = new Blob([''], { type: 'font/opentype' })
+		applyFontBlob('TestFamily', blob)
+		const el = document.getElementById('glyphshaper-override')
+		expect(el).not.toBeNull()
+		expect(el?.tagName).toBe('STYLE')
+	})
+
+	it('style contains the font-family name', () => {
+		const blob = new Blob([''], { type: 'font/opentype' })
+		applyFontBlob('MyFont', blob)
+		const el = document.getElementById('glyphshaper-override')!
+		expect(el.textContent).toContain('"MyFont"')
+	})
+
+	it('revokes existingUrl when provided', () => {
+		const blob = new Blob([''], { type: 'font/opentype' })
+		const existingUrl = 'blob:old-url'
+		applyFontBlob('MyFont', blob, existingUrl)
+		expect(URL.revokeObjectURL).toHaveBeenCalledWith(existingUrl)
+	})
+
+	it('replaces previous <style> element on second call', () => {
+		const blob = new Blob([''], { type: 'font/opentype' })
+		applyFontBlob('MyFont', blob)
+		applyFontBlob('MyFont', blob)
+		const els = document.querySelectorAll('#glyphshaper-override')
+		expect(els.length).toBe(1)
+	})
+
+	it('returns the newly created Blob URL', () => {
+		const blob = new Blob([''], { type: 'font/opentype' })
+		const url = applyFontBlob('MyFont', blob)
+		expect(url).toBe('blob:mock-1')
+	})
+})
+
+describe('revokeFont', () => {
+	beforeEach(() => {
+		document.head.innerHTML = ''
+		vi.stubGlobal('URL', {
+			createObjectURL: () => 'blob:mock-1',
+			revokeObjectURL: vi.fn(),
+		})
+	})
+
+	afterEach(() => {
+		vi.unstubAllGlobals()
+	})
+
+	it('revokes the Blob URL', () => {
+		revokeFont('blob:mock-1')
+		expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:mock-1')
+	})
+
+	it('removes the <style> element from the document', () => {
+		const el = document.createElement('style')
+		el.id = 'glyphshaper-override'
+		document.head.appendChild(el)
+		revokeFont('blob:mock-1')
+		expect(document.getElementById('glyphshaper-override')).toBeNull()
+	})
+})
+
+// ─── parseFont WOFF2 branch ───────────────────────────────────────────────────
+
+describe('parseFont', () => {
+	it('throws a descriptive error for WOFF2 input without a decompressor', async () => {
+		// WOFF2 magic: 0x774F4632
+		const buf = new ArrayBuffer(4)
+		new DataView(buf).setUint32(0, 0x774f4632, false)
+		await expect(parseFont(buf)).rejects.toThrow(/WOFF2 input requires a woff2Decompressor/)
+	})
+
+	it('calls the decompressor for WOFF2 input', async () => {
+		const woff2Buf = new ArrayBuffer(4)
+		new DataView(woff2Buf).setUint32(0, 0x774f4632, false)
+
+		// Decompressor returns a minimal valid buffer — opentype.parse will fail
+		// but we only assert the decompressor was called
+		const decompressor = vi.fn().mockResolvedValue(new ArrayBuffer(8))
+		await expect(parseFont(woff2Buf, decompressor)).rejects.toThrow()
+		expect(decompressor).toHaveBeenCalledWith(woff2Buf)
 	})
 })

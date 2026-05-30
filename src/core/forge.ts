@@ -100,6 +100,20 @@ export async function parseFont(buffer: ArrayBuffer, woff2Decompressor?: Woff2De
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	;(font as any).position = null
 
+	// Warn callers if this is a variable font — opentype.js toArrayBuffer() does not
+	// re-serialise gvar/fvar/avar/HVAR/MVAR/STAT, so the injected font is a static
+	// snapshot. Any CSS font-variation-settings on the page will have no effect after
+	// applyFontBlob() is called.
+	const isVariable = !!(t.fvar)
+	if (isVariable && typeof console !== 'undefined') {
+		console.warn(
+			'[glyphshaper] This font has variable-font axes (fvar table). ' +
+			'After applyFontBlob() the injected override is a static snapshot — ' +
+			'opentype.js does not re-serialise gvar/fvar/avar/HVAR/MVAR/STAT. ' +
+			'CSS font-variation-settings will have no effect on the overridden family.'
+		)
+	}
+
 	return { _font: font }
 }
 
@@ -114,21 +128,15 @@ export async function parseFont(buffer: ArrayBuffer, woff2Decompressor?: Woff2De
  */
 export function getGlyphCommands(font: GlyphFont, char: string): PathCommand[] {
 	const idx = font._font.charToGlyphIndex(char)
+	// Index 0 is the .notdef glyph — returned by opentype.js when the character is
+	// not in the cmap. Treat this as "no glyph found" to avoid silently editing .notdef.
+	if (idx === 0) return []
 	const glyph = font._font.glyphs.get(idx)
 	if (!glyph?.path?.commands) return []
 	// Deep-copy so the editor state is independent of the font's internal data
 	return glyph.path.commands.map(cmd => ({ ...cmd }) as PathCommand)
 }
 
-/**
- * Write modified path commands back into the font's glyph.
- * This mutates the font object in place so the next call to fontToBlob()
- * regenerates with these commands applied.
- *
- * @param font     - Parsed font handle (mutated in place)
- * @param char     - Character whose glyph to update
- * @param commands - New path commands (from the editor)
- */
 /** Return the xMin and xMax of a set of path commands using all on/off-curve x coordinates. */
 function pathXBounds(cmds: PathCommand[]): { xMin: number; xMax: number } | null {
 	let xMin = Infinity, xMax = -Infinity
@@ -142,8 +150,19 @@ function pathXBounds(cmds: PathCommand[]): { xMin: number; xMax: number } | null
 	return xMin === Infinity ? null : { xMin, xMax }
 }
 
+/**
+ * Write modified path commands back into the font's glyph.
+ * This mutates the font object in place so the next call to fontToBlob()
+ * regenerates with these commands applied.
+ *
+ * @param font     - Parsed font handle (mutated in place)
+ * @param char     - Character whose glyph to update
+ * @param commands - New path commands (from the editor)
+ */
 export function setGlyphCommands(font: GlyphFont, char: string, commands: PathCommand[]): void {
 	const idx = font._font.charToGlyphIndex(char)
+	// Index 0 is .notdef — refuse to write it to avoid silently corrupting the wrong glyph
+	if (idx === 0) return
 	const glyph = font._font.glyphs.get(idx)
 	if (!glyph?.path) return
 
@@ -198,6 +217,15 @@ const STYLE_ID = 'glyphshaper-override'
  * @param existingUrl - Previously active Blob URL to revoke (optional)
  * @param options     - font-weight / font-style for the @font-face rule
  */
+/**
+ * Strip characters that could break out of a CSS descriptor value.
+ * Allows alphanumeric, spaces, hyphens, and dots — sufficient for font-weight
+ * (e.g. "400", "bold", "100 900") and font-style ("normal", "italic", "oblique").
+ */
+function sanitizeCSSDescriptor(value: string): string {
+	return value.replace(/[^a-zA-Z0-9 .\-]/g, '')
+}
+
 export function applyFontBlob(
 	fontFamily: string,
 	blob: Blob,
@@ -206,8 +234,12 @@ export function applyFontBlob(
 ): string {
 	if (existingUrl) URL.revokeObjectURL(existingUrl)
 	const url = URL.createObjectURL(blob)
-	const weight = options.fontWeight ?? 'normal'
-	const style  = options.fontStyle  ?? 'normal'
+	// Sanitise weight and style to prevent CSS injection — fontFamily already uses JSON.stringify
+	const weight = sanitizeCSSDescriptor(String(options.fontWeight ?? 'normal'))
+	const style  = sanitizeCSSDescriptor(String(options.fontStyle  ?? 'normal'))
+
+	// Save scroll position — font-driven relayout can cause scroll-jump on iOS Safari
+	const scrollY = typeof window !== 'undefined' ? window.scrollY : 0
 
 	// Remove any previous override rule
 	document.getElementById(STYLE_ID)?.remove()
@@ -220,9 +252,20 @@ export function applyFontBlob(
 		`  src: url(${JSON.stringify(url)}) format('opentype');`,
 		`  font-weight: ${weight};`,
 		`  font-style: ${style};`,
+		`  font-display: swap;`,
 		`}`,
 	].join('\n')
 	document.head.appendChild(el)
+
+	// Restore scroll after the font-driven relayout settles (iOS Safari fix)
+	if (typeof window !== 'undefined') {
+		requestAnimationFrame(() => {
+			if (Math.abs(window.scrollY - scrollY) > 2) {
+				window.scrollTo({ top: scrollY, behavior: 'instant' as ScrollBehavior })
+			}
+		})
+	}
+
 	return url
 }
 
@@ -253,6 +296,7 @@ export function commandsToPathD(commands: PathCommand[]): string {
 			case 'C': return `C ${cmd.x1} ${cmd.y1} ${cmd.x2} ${cmd.y2} ${cmd.x} ${cmd.y}`
 			case 'Q': return `Q ${cmd.x1} ${cmd.y1} ${cmd.x} ${cmd.y}`
 			case 'Z': return 'Z'
+			default:  return ''
 		}
-	}).join(' ')
+	}).filter(Boolean).join(' ')
 }
