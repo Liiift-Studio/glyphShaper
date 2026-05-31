@@ -1,12 +1,12 @@
-import { useState as D, useEffect as T, useRef as C, useCallback as A } from "react";
-import { jsxs as M, jsx as f } from "react/jsx-runtime";
-const N = 2001684018;
-function Q(t) {
-  return t.byteLength < 4 ? !1 : new DataView(t).getUint32(0, !1) === N;
+import { useState as F, useEffect as R, useRef as C, useCallback as N } from "react";
+import { jsxs as M, jsx as d } from "react/jsx-runtime";
+const V = 2001684018;
+function Y(t) {
+  return t.byteLength < 4 ? !1 : new DataView(t).getUint32(0, !1) === V;
 }
-async function X(t, n) {
+async function Q(t, n) {
   let o = t;
-  if (Q(t)) {
+  if (Y(t)) {
     if (!n)
       throw new Error(
         "[glyphshaper] WOFF2 input requires a woff2Decompressor. Pass one to parseFont(), or convert the font to TTF / OTF / WOFF first."
@@ -17,20 +17,24 @@ async function X(t, n) {
   let e;
   try {
     e = r(o);
-  } catch (l) {
-    throw l instanceof Error && /not yet supported|lookup type/i.test(l.message) ? new Error(
-      `This font uses an OpenType feature not yet supported by opentype.js (${l.message}). Try a different font — Inter, Roboto, and most system fonts work well.`
-    ) : l;
+  } catch (a) {
+    throw a instanceof Error && /not yet supported|lookup type/i.test(a.message) ? new Error(
+      `This font uses an OpenType feature not yet supported by opentype.js (${a.message}). Try a different font — Inter, Roboto, and most system fonts work well.`
+    ) : a;
   }
   const i = e.tables;
-  return delete i.gsub, delete i.gpos, e.substitution = null, e.position = null, { _font: e };
+  return delete i.gsub, delete i.gpos, e.substitution = null, e.position = null, !!i.fvar && typeof console < "u" && console.warn(
+    "[glyphshaper] This font has variable-font axes (fvar table). After applyFontBlob() the injected override is a static snapshot — opentype.js does not re-serialise gvar/fvar/avar/HVAR/MVAR/STAT. CSS font-variation-settings will have no effect on the overridden family."
+  ), { _font: e };
 }
 function z(t, n) {
   var e;
-  const o = t._font.charToGlyphIndex(n), r = t._font.glyphs.get(o);
+  const o = t._font.charToGlyphIndex(n);
+  if (o === 0) return [];
+  const r = t._font.glyphs.get(o);
   return (e = r == null ? void 0 : r.path) != null && e.commands ? r.path.commands.map((i) => ({ ...i })) : [];
 }
-function j(t) {
+function _(t) {
   let n = 1 / 0, o = -1 / 0;
   for (const r of t) {
     if (r.type === "Z") continue;
@@ -40,41 +44,49 @@ function j(t) {
   }
   return n === 1 / 0 ? null : { xMin: n, xMax: o };
 }
-function Y(t, n, o) {
-  const r = t._font.charToGlyphIndex(n), e = t._font.glyphs.get(r);
+function X(t, n, o) {
+  const r = t._font.charToGlyphIndex(n);
+  if (r === 0) return;
+  const e = t._font.glyphs.get(r);
   if (!(e != null && e.path)) return;
-  const i = j(e.path.commands), l = i !== null ? (e.advanceWidth ?? 0) - i.xMax : 0;
+  const i = _(e.path.commands), c = i !== null ? (e.advanceWidth ?? 0) - i.xMax : 0;
   if (e.path.commands = o, e.advanceWidth !== void 0) {
-    const a = j(o);
-    a !== null && (e.leftSideBearing = Math.round(a.xMin), e.advanceWidth = Math.max(0, Math.round(a.xMax + l)));
+    const a = _(o);
+    a !== null && (e.leftSideBearing = Math.round(a.xMin), e.advanceWidth = Math.max(0, Math.round(a.xMax + c)));
   }
 }
 function Z(t) {
   const n = t._font.toArrayBuffer();
   return new Blob([n], { type: "font/opentype" });
 }
-const _ = "glyphshaper-override";
+const O = "glyphshaper-override";
+function j(t) {
+  return t.replace(/[^a-zA-Z0-9 .\-]/g, "");
+}
 function K(t, n, o, r = {}) {
-  var u;
+  var y;
   o && URL.revokeObjectURL(o);
-  const e = URL.createObjectURL(n), i = r.fontWeight ?? "normal", l = r.fontStyle ?? "normal";
-  (u = document.getElementById(_)) == null || u.remove();
-  const a = document.createElement("style");
-  return a.id = _, a.textContent = [
+  const e = URL.createObjectURL(n), i = j(String(r.fontWeight ?? "normal")), c = j(String(r.fontStyle ?? "normal")), a = typeof window < "u" ? window.scrollY : 0;
+  (y = document.getElementById(O)) == null || y.remove();
+  const u = document.createElement("style");
+  return u.id = O, u.textContent = [
     "@font-face {",
     `  font-family: ${JSON.stringify(t)};`,
     `  src: url(${JSON.stringify(e)}) format('opentype');`,
     `  font-weight: ${i};`,
-    `  font-style: ${l};`,
+    `  font-style: ${c};`,
+    "  font-display: swap;",
     "}"
   ].join(`
-`), document.head.appendChild(a), e;
-}
-function V(t) {
-  var n;
-  URL.revokeObjectURL(t), (n = document.getElementById(_)) == null || n.remove();
+`), document.head.appendChild(u), typeof window < "u" && requestAnimationFrame(() => {
+    Math.abs(window.scrollY - a) > 2 && window.scrollTo({ top: a, behavior: "instant" });
+  }), e;
 }
 function q(t) {
+  var n;
+  URL.revokeObjectURL(t), (n = document.getElementById(O)) == null || n.remove();
+}
+function J(t) {
   return t.map((n) => {
     switch (n.type) {
       case "M":
@@ -87,16 +99,18 @@ function q(t) {
         return `Q ${n.x1} ${n.y1} ${n.x} ${n.y}`;
       case "Z":
         return "Z";
+      default:
+        return "";
     }
-  }).join(" ");
+  }).filter(Boolean).join(" ");
 }
-function ct(t) {
-  const [n, o] = D({
+function ut(t) {
+  const [n, o] = F({
     font: null,
     loading: !1,
     error: null
   });
-  return T(() => {
+  return R(() => {
     if (!t) {
       o({ font: null, loading: !1, error: null });
       return;
@@ -113,9 +127,9 @@ function ct(t) {
         } else
           i = await t.arrayBuffer();
         if (r) return;
-        const l = await X(i);
+        const c = await Q(i);
         if (r) return;
-        o({ font: l, loading: !1, error: null });
+        o({ font: c, loading: !1, error: null });
       } catch (i) {
         if (r) return;
         o({
@@ -132,20 +146,20 @@ function ct(t) {
     typeof t == "string" ? t : t ? `${t.name}:${t.size}` : null
   ]), n;
 }
-const I = 360, g = 32, J = 7, tt = 5, H = 50;
-function B(t, n, o, r, e) {
+const S = 360, g = 32, tt = 7, nt = 5, H = 50;
+function D(t, n, o, r, e) {
   return [
     g + (t - r) * o,
     g + (e - n) * o
   ];
 }
-function nt(t, n, o, r, e) {
+function et(t, n, o, r, e) {
   return [
     (t - g) / o + r,
     e - (n - g) / o
   ];
 }
-function et(t) {
+function rt(t) {
   const n = [];
   for (let o = 0; o < t.length; o++) {
     const r = t[o];
@@ -153,59 +167,59 @@ function et(t) {
   }
   return n;
 }
-function rt(t) {
+function ot(t) {
   const n = [];
   let o = 0, r = 0;
   for (const e of t)
     e.type === "M" || e.type === "L" ? (o = e.x, r = e.y) : e.type === "C" ? (n.push({ x1: o, y1: r, x2: e.x1, y2: e.y1 }), n.push({ x1: e.x2, y1: e.y2, x2: e.x, y2: e.y }), o = e.x, r = e.y) : e.type === "Q" && (n.push({ x1: o, y1: r, x2: e.x1, y2: e.y1 }), n.push({ x1: e.x1, y1: e.y1, x2: e.x, y2: e.y }), o = e.x, r = e.y);
   return n;
 }
-function ot(t, n, o, r, e) {
-  const i = Math.round(r), l = Math.round(e);
-  return t.map((a, u) => u !== n ? a : o === "xy" && (a.type === "M" || a.type === "L") ? { ...a, x: i, y: l } : o === "xy" && (a.type === "C" || a.type === "Q") ? { ...a, x: i, y: l } : o === "x1y1" && (a.type === "C" || a.type === "Q") ? { ...a, x1: i, y1: l } : o === "x2y2" && a.type === "C" ? { ...a, x2: i, y2: l } : a);
+function it(t, n, o, r, e) {
+  const i = Math.round(r), c = Math.round(e);
+  return t.map((a, u) => u !== n ? a : o === "xy" && (a.type === "M" || a.type === "L") ? { ...a, x: i, y: c } : o === "xy" && (a.type === "C" || a.type === "Q") ? { ...a, x: i, y: c } : o === "x1y1" && (a.type === "C" || a.type === "Q") ? { ...a, x1: i, y1: c } : o === "x2y2" && a.type === "C" ? { ...a, x2: i, y2: c } : a);
 }
-function it(t) {
+function at(t) {
   const n = /* @__PURE__ */ new Set();
   return t.split("").filter((o) => !o.trim() || n.has(o) ? !1 : (n.add(o), !0));
 }
-function at({
+function st({
   commands: t,
   font: n,
   char: o,
   onChange: r,
   onDragStart: e
 }) {
-  const i = C(null), l = C(null), a = n._font, u = a.charToGlyphIndex(o), h = a.glyphs.get(u), b = (h == null ? void 0 : h.leftSideBearing) ?? 0, k = (h == null ? void 0 : h.advanceWidth) ?? a.unitsPerEm, y = a.ascender, v = a.descender, w = k, L = y - v, E = I - 2 * g, d = Math.min(E / w, E / L), S = g + y * d, F = A((s) => {
-    const x = i.current;
-    if (!x) return [0, 0];
-    const m = x.getScreenCTM();
-    if (!m) return [0, 0];
-    const $ = x.createSVGPoint();
+  const i = C(null), c = C(null), a = n._font, u = a.charToGlyphIndex(o), y = a.glyphs.get(u), b = (y == null ? void 0 : y.leftSideBearing) ?? 0, v = (y == null ? void 0 : y.advanceWidth) ?? a.unitsPerEm, h = a.ascender, m = a.descender, k = v, E = h - m, P = S - 2 * g, f = Math.min(P / k, P / E), T = g + h * f, W = N((s) => {
+    const p = i.current;
+    if (!p) return [0, 0];
+    const w = p.getScreenCTM();
+    if (!w) return [0, 0];
+    const $ = p.createSVGPoint();
     $.x = s.clientX, $.y = s.clientY;
-    const R = $.matrixTransform(m.inverse());
-    return nt(R.x, R.y, d, b, y);
-  }, [d, b, y]);
-  function P(s, x, m) {
-    s.stopPropagation(), s.target.setPointerCapture(s.pointerId), e(t), l.current = { cmdIdx: x, field: m };
+    const I = $.matrixTransform(w.inverse());
+    return et(I.x, I.y, f, b, h);
+  }, [f, b, h]);
+  function L(s, p, w) {
+    s.isPrimary && (s.stopPropagation(), s.target.setPointerCapture(s.pointerId), e(t), c.current = { cmdIdx: p, field: w });
   }
-  function G(s) {
-    if (!l.current) return;
-    const [x, m] = F(s);
-    r(ot(t, l.current.cmdIdx, l.current.field, x, m));
+  function A(s) {
+    if (!c.current) return;
+    const [p, w] = W(s);
+    r(it(t, c.current.cmdIdx, c.current.field, p, w));
   }
-  function W() {
-    l.current = null;
+  function B() {
+    c.current = null;
   }
-  const O = q(t), c = et(t), p = rt(t);
+  const G = J(t), l = rt(t), x = ot(t);
   return /* @__PURE__ */ M(
     "svg",
     {
       ref: i,
       width: "100%",
-      viewBox: `0 0 ${I} ${I}`,
-      onPointerMove: G,
-      onPointerUp: W,
-      onPointerLeave: W,
+      viewBox: `0 0 ${S} ${S}`,
+      onPointerMove: A,
+      onPointerUp: B,
+      onPointerLeave: B,
       style: {
         display: "block",
         touchAction: "none",
@@ -215,83 +229,83 @@ function at({
       },
       "aria-label": `Glyph path editor for character ${o}`,
       children: [
-        /* @__PURE__ */ f(
+        /* @__PURE__ */ d(
           "line",
           {
             x1: g / 2,
-            y1: S,
-            x2: I - g / 2,
-            y2: S,
+            y1: T,
+            x2: S - g / 2,
+            y2: T,
             stroke: "rgba(255,255,255,0.08)",
             strokeWidth: 1
           }
         ),
         (() => {
-          const [s] = B(k, 0, d, b, y);
-          return /* @__PURE__ */ f(
+          const [s] = D(v, 0, f, b, h);
+          return /* @__PURE__ */ d(
             "line",
             {
               x1: s,
               y1: g / 2,
               x2: s,
-              y2: I - g / 2,
+              y2: S - g / 2,
               stroke: "rgba(255,255,255,0.08)",
               strokeWidth: 1,
               strokeDasharray: "4 4"
             }
           );
         })(),
-        /* @__PURE__ */ f("g", { transform: `translate(${g + (0 - b) * d}, ${g + y * d}) scale(${d}, ${-d})`, children: t.length > 0 && /* @__PURE__ */ f(
+        /* @__PURE__ */ d("g", { transform: `translate(${g + (0 - b) * f}, ${g + h * f}) scale(${f}, ${-f})`, children: t.length > 0 && /* @__PURE__ */ d(
           "path",
           {
-            d: O,
+            d: G,
             fill: "rgba(212,184,240,0.12)",
             stroke: "rgba(212,184,240,0.55)",
-            strokeWidth: 2 / d,
+            strokeWidth: 2 / f,
             fillRule: "nonzero"
           }
         ) }),
-        p.map((s, x) => {
-          const [m, $] = B(s.x1, s.y1, d, b, y), [R, U] = B(s.x2, s.y2, d, b, y);
-          return /* @__PURE__ */ f(
+        x.map((s, p) => {
+          const [w, $] = D(s.x1, s.y1, f, b, h), [I, U] = D(s.x2, s.y2, f, b, h);
+          return /* @__PURE__ */ d(
             "line",
             {
-              x1: m,
+              x1: w,
               y1: $,
-              x2: R,
+              x2: I,
               y2: U,
               stroke: "rgba(255,255,255,0.18)",
               strokeWidth: 1,
               strokeDasharray: "3 3"
             },
-            x
+            p
           );
         }),
-        c.map((s, x) => {
-          const [m, $] = B(s.x, s.y, d, b, y), R = s.kind === "anchor" ? J : tt;
-          return /* @__PURE__ */ f(
+        l.map((s, p) => {
+          const [w, $] = D(s.x, s.y, f, b, h), I = s.kind === "anchor" ? tt : nt;
+          return /* @__PURE__ */ d(
             "circle",
             {
               role: "button",
-              "aria-label": `${s.kind === "anchor" ? "Anchor" : "Handle"} point ${x + 1} of ${c.length}`,
+              "aria-label": `${s.kind === "anchor" ? "Anchor" : "Handle"} point ${p + 1} of ${l.length}`,
               tabIndex: 0,
-              cx: m,
+              cx: w,
               cy: $,
-              r: R,
+              r: I,
               fill: s.kind === "anchor" ? "rgba(212,184,240,0.9)" : "rgba(0,0,0,0)",
               stroke: "rgba(212,184,240,0.75)",
               strokeWidth: 1.5,
               style: { cursor: "grab" },
-              onPointerDown: (U) => P(U, s.cmdIdx, s.field)
+              onPointerDown: (U) => L(U, s.cmdIdx, s.field)
             },
-            x
+            p
           );
         }),
-        t.length === 0 && /* @__PURE__ */ f(
+        t.length === 0 && /* @__PURE__ */ d(
           "text",
           {
-            x: I / 2,
-            y: I / 2,
+            x: S / 2,
+            y: S / 2,
             textAnchor: "middle",
             fill: "rgba(255,255,255,0.3)",
             fontSize: 12,
@@ -303,72 +317,74 @@ function at({
     }
   );
 }
-function ut({
+function ft({
   font: t,
   fontFamily: n,
   text: o = "Typography",
   children: r,
   selectedChar: e,
   onClose: i,
-  onApply: l,
+  onApply: c,
   hidePalette: a = !1
 }) {
-  const [u, h] = D(null), [b, k] = D([]), [y, v] = D([]), w = C(null), L = C(null), E = it(o), d = y.length > 0;
-  T(() => () => {
-    w.current && (V(w.current), w.current = null);
-  }, []), T(() => {
-    L.current = u;
-  }, [u]), T(() => {
+  const [u, y] = F(null), [b, v] = F([]), [h, m] = F([]), k = C(null), E = C(null), P = at(o), f = h.length > 0;
+  R(() => () => {
+    k.current && (q(k.current), k.current = null);
+  }, []), R(() => {
+    E.current = u;
+  }, [u]), R(() => {
     if (e === void 0 || !t) return;
-    const c = L.current;
-    e === null ? c !== null && (h(null), k([]), v([])) : e !== c && (k(z(t, e)), h(e), v([]));
+    const l = E.current;
+    e === null ? l !== null && (y(null), v([]), m([])) : e !== l && (v(z(t, e)), y(e), m([]));
   }, [e, t]);
-  function S() {
-    if (y.length === 0) return;
-    const c = y[y.length - 1];
-    v((p) => p.slice(0, -1)), k(c);
+  function T() {
+    if (h.length === 0) return;
+    const l = h[h.length - 1];
+    m((x) => x.slice(0, -1)), v(l);
   }
-  function F(c) {
-    v((p) => {
-      const s = [...p, c];
+  function W(l) {
+    m((x) => {
+      const s = [...x, l];
       return s.length > H ? s.slice(-H) : s;
     });
   }
-  const P = C(S);
-  T(() => {
-    P.current = S;
-  }), T(() => {
+  const L = C(T);
+  R(() => {
+    L.current = T;
+  }), R(() => {
     if (!u) return;
-    function c(p) {
-      (p.metaKey || p.ctrlKey) && !p.shiftKey && p.key === "z" && (p.preventDefault(), P.current());
+    function l(x) {
+      var p;
+      const s = (p = x.target) == null ? void 0 : p.tagName;
+      s === "INPUT" || s === "TEXTAREA" || (x.metaKey || x.ctrlKey) && !x.shiftKey && x.key === "z" && (x.preventDefault(), L.current());
     }
-    return window.addEventListener("keydown", c), () => window.removeEventListener("keydown", c);
+    return window.addEventListener("keydown", l), () => window.removeEventListener("keydown", l);
   }, [u]);
-  function G(c) {
-    t && (k(z(t, c)), h(c), v([]));
+  function A(l) {
+    t && (v(z(t, l)), y(l), m([]));
   }
-  function W() {
-    h(null), k([]), v([]), i == null || i();
+  function B() {
+    y(null), v([]), m([]), i == null || i();
   }
-  function O() {
+  function G() {
     if (!t || !u) return;
-    Y(t, u, b);
-    const c = Z(t), p = K(n, c, w.current ?? void 0);
-    w.current = p, l == null || l(u, [...b]), h(null), k([]), v([]), i == null || i();
+    X(t, u, b);
+    const l = Z(t), x = K(n, l, k.current ?? void 0);
+    k.current = x, c == null || c(u, [...b]), y(null), v([]), m([]), i == null || i();
   }
   return /* @__PURE__ */ M("div", { children: [
-    (r != null || !a) && /* @__PURE__ */ f("div", { style: { fontFamily: n }, children: r ?? /* @__PURE__ */ f("p", { children: o }) }),
-    t && !a && /* @__PURE__ */ f(
+    (r != null || !a) && /* @__PURE__ */ d("div", { style: { fontFamily: n }, children: r ?? /* @__PURE__ */ d("p", { children: o }) }),
+    t && !a && /* @__PURE__ */ d(
       "div",
       {
         role: "group",
         "aria-label": "Character palette — click to edit",
         style: { display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "16px" },
-        children: E.map((c) => /* @__PURE__ */ f(
+        children: P.map((l) => /* @__PURE__ */ d(
           "button",
           {
-            onClick: () => G(c),
-            "aria-pressed": u === c,
+            onClick: () => A(l),
+            "aria-pressed": u === l,
             style: {
               width: 32,
               height: 32,
@@ -379,14 +395,14 @@ function ut({
               fontSize: 16,
               border: "1px solid rgba(255,255,255,0.2)",
               borderRadius: 4,
-              background: u === c ? "rgba(212,184,240,0.15)" : "transparent",
+              background: u === l ? "rgba(212,184,240,0.15)" : "transparent",
               cursor: "pointer",
               color: "inherit",
               transition: "background 0.15s"
             },
-            children: c
+            children: l
           },
-          c
+          l
         ))
       }
     ),
@@ -405,21 +421,21 @@ function ut({
             u,
             "” — drag filled circles (anchors) or outlined circles (handles) to reshape"
           ] }),
-          /* @__PURE__ */ f(
-            at,
+          /* @__PURE__ */ d(
+            st,
             {
               commands: b,
               font: t,
               char: u,
-              onChange: k,
-              onDragStart: F
+              onChange: v,
+              onDragStart: W
             }
           ),
           /* @__PURE__ */ M("div", { style: { display: "flex", gap: 8, marginTop: 12, alignItems: "center" }, children: [
-            /* @__PURE__ */ f(
+            /* @__PURE__ */ d(
               "button",
               {
-                onClick: W,
+                onClick: B,
                 style: {
                   fontSize: 12,
                   padding: "4px 12px",
@@ -433,11 +449,11 @@ function ut({
                 children: "Cancel"
               }
             ),
-            /* @__PURE__ */ f(
+            /* @__PURE__ */ d(
               "button",
               {
-                onClick: S,
-                disabled: !d,
+                onClick: T,
+                disabled: !f,
                 title: "Undo last drag (Ctrl+Z / Cmd+Z)",
                 style: {
                   fontSize: 12,
@@ -446,17 +462,17 @@ function ut({
                   border: "1px solid rgba(255,255,255,0.3)",
                   background: "transparent",
                   color: "inherit",
-                  opacity: d ? 0.7 : 0.25,
-                  cursor: d ? "pointer" : "default",
+                  opacity: f ? 0.7 : 0.25,
+                  cursor: f ? "pointer" : "default",
                   transition: "opacity 0.15s"
                 },
                 children: "Undo"
               }
             ),
-            /* @__PURE__ */ f(
+            /* @__PURE__ */ d(
               "button",
               {
-                onClick: O,
+                onClick: G,
                 style: {
                   fontSize: 12,
                   padding: "4px 12px",
@@ -474,18 +490,18 @@ function ut({
         ]
       }
     ),
-    !t && /* @__PURE__ */ f("p", { style: { marginTop: 12, fontSize: 12, opacity: 0.4, fontFamily: "sans-serif" }, children: "No font loaded." })
+    !t && /* @__PURE__ */ d("p", { style: { marginTop: 12, fontSize: 12, opacity: 0.4, fontFamily: "sans-serif" }, children: "No font loaded." })
   ] });
 }
 export {
-  ut as GlyphShaperEditor,
-  at as GlyphSvgEditor,
+  ft as GlyphShaperEditor,
+  st as GlyphSvgEditor,
   K as applyFontBlob,
-  q as commandsToPathD,
+  J as commandsToPathD,
   Z as fontToBlob,
   z as getGlyphCommands,
-  X as parseFont,
-  V as revokeFont,
-  Y as setGlyphCommands,
-  ct as useGlyphFont
+  Q as parseFont,
+  q as revokeFont,
+  X as setGlyphCommands,
+  ut as useGlyphFont
 };

@@ -1,18 +1,6 @@
 import { Font } from 'opentype.js';
 import { JSX } from 'react/jsx-runtime';
 
-/**
- * Inject a dynamic @font-face rule that overrides the named font family with
- * the provided Blob. All text on the page using fontFamily will re-render.
- *
- * If existingUrl is provided it will be revoked before creating the new one.
- * Returns the new Blob URL so the caller can revoke it later.
- *
- * @param fontFamily  - CSS font-family value to override
- * @param blob        - Font data blob from fontToBlob()
- * @param existingUrl - Previously active Blob URL to revoke (optional)
- * @param options     - font-weight / font-style for the @font-face rule
- */
 export declare function applyFontBlob(fontFamily: string, blob: Blob, existingUrl?: string, options?: GlyphShaperOptions): string;
 
 /**
@@ -237,14 +225,23 @@ export declare type PathCommand = CmdM | CmdL | CmdC | CmdQ | CmdZ;
  */
 export declare function revokeFont(url: string): void;
 
+/**
+ * Write modified path commands back into the font's glyph.
+ * This mutates the font object in place so the next call to fontToBlob()
+ * regenerates with these commands applied.
+ *
+ * @param font     - Parsed font handle (mutated in place)
+ * @param char     - Character whose glyph to update
+ * @param commands - New path commands (from the editor)
+ */
 export declare function setGlyphCommands(font: GlyphFont, char: string, commands: PathCommand[]): void;
 
 /**
  * Load and parse a font from a URL or a File object.
  *
- * - Pass a URL string to fetch over HTTP (must be TTF or OTF — not WOFF2,
- *   which is brotli-compressed and not parseable by opentype.js without a
- *   separate decoder).
+ * - Pass a URL string to fetch over HTTP (TTF, OTF, or WOFF1 — not WOFF2,
+ *   because this hook does not accept a woff2Decompressor parameter;
+ *   use parseFont() directly if you need WOFF2 support).
  * - Pass a File object for user-uploaded fonts (any TTF, OTF, or WOFF1).
  * - Pass null to reset to idle state.
  *
