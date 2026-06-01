@@ -5,7 +5,6 @@ import ToolDirectory from "@/components/ToolDirectory"
 import { version } from "../../../package.json"
 import { version as siteVersion } from "../../package.json"
 import SiteFooter from "../components/SiteFooter"
-import { MagnetChar } from "@liiift-studio/magnettype"
 
 export default function Home() {
 	return (
@@ -16,8 +15,8 @@ export default function Home() {
 				<div className="flex flex-col gap-2">
 					<p className="text-xs uppercase tracking-widest opacity-50">glyphshaper</p>
 					<h1 className="text-4xl lg:text-8xl xl:text-9xl" style={{ fontFamily: "var(--font-merriweather), serif", fontVariationSettings: '"wght" 300, "opsz" 144', lineHeight: "1.05em" }}>
-						<MagnetChar as="span" minWeight={300} maxWeight={800} spreadRadius={220} fixedAxes={{ opsz: 144 }}>Edit a glyph.</MagnetChar><br />
-						<MagnetChar as="span" minWeight={300} maxWeight={800} spreadRadius={220} fixedAxes={{ opsz: 144 }} style={{ opacity: 0.5, fontStyle: "italic" }}>Watch it everywhere.</MagnetChar>
+						Edit a glyph.<br />
+						<span style={{ opacity: 0.5, fontStyle: "italic" }}>Watch it everywhere.</span>
 					</h1>
 				</div>
 				<div className="flex items-center gap-4">
@@ -96,6 +95,7 @@ export default function Home() {
 
 const { font } = useGlyphFont('/fonts/MyFont.ttf')
 
+// fontFamily must match the CSS font-family name applied to the child element
 <GlyphShaperEditor font={font} fontFamily="MyFont" text="Heading">
   <h1 style={{ fontFamily: 'MyFont' }}>Heading</h1>
 </GlyphShaperEditor>`} />
@@ -105,7 +105,12 @@ const { font } = useGlyphFont('/fonts/MyFont.ttf')
 						<CodeBlock code={`import { useGlyphFont } from '@liiift-studio/glyphshaper'
 
 // Pass a File object from an <input type="file"> onChange handler
-const { font, loading, error } = useGlyphFont(file)`} />
+// Note: useGlyphFont supports TTF, OTF, and WOFF1 only.
+// For WOFF2, use parseFont() directly with a woff2Decompressor callback.
+const { font, loading, error } = useGlyphFont(file)
+
+// Pass null to reset the hook to idle state
+const { font } = useGlyphFont(null)`} />
 					</div>
 					<div className="flex flex-col gap-3">
 						<p className="opacity-50">Low-level — vanilla JS</p>
@@ -136,14 +141,14 @@ const url = applyFontBlob('MyFont', fontToBlob(font))
 						<table className="w-full text-xs">
 							<thead>
 								<tr className="opacity-50 text-left">
-									<th className="pb-2 pr-6 font-normal">Function</th>
+									<th className="pb-2 pr-6 font-normal">Name</th>
 									<th className="pb-2 font-normal">Description</th>
 								</tr>
 							</thead>
 							<tbody className="opacity-70">
 								<tr className="border-t border-white/10 hover:bg-white/5 transition-colors">
-									<td className="py-2 pr-6 font-mono">parseFont(buffer)</td>
-									<td className="py-2">Parse an ArrayBuffer (TTF, OTF, WOFF1, or WOFF2) into a GlyphFont handle.</td>
+									<td className="py-2 pr-6 font-mono">parseFont(buffer, decompressor?)</td>
+									<td className="py-2">Parse an ArrayBuffer (TTF, OTF, or WOFF1) into a GlyphFont handle. For WOFF2 input, pass a <code className="font-mono">woff2Decompressor</code> callback — the function throws without it.</td>
 								</tr>
 								<tr className="border-t border-white/10 hover:bg-white/5 transition-colors">
 									<td className="py-2 pr-6 font-mono">getGlyphCommands(font, char)</td>
@@ -158,8 +163,8 @@ const url = applyFontBlob('MyFont', fontToBlob(font))
 									<td className="py-2">Serialise the font to a Blob (OTF binary).</td>
 								</tr>
 								<tr className="border-t border-white/10 hover:bg-white/5 transition-colors">
-									<td className="py-2 pr-6 font-mono">applyFontBlob(family, blob)</td>
-									<td className="py-2">Inject a @font-face override; returns the Blob URL for later cleanup.</td>
+									<td className="py-2 pr-6 font-mono">applyFontBlob(family, blob, existingUrl?, options?)</td>
+									<td className="py-2">Inject a @font-face override; returns the Blob URL for later cleanup. Pass <code className="font-mono">existingUrl</code> to revoke the previous Blob URL and prevent memory leaks. <code className="font-mono">options</code> accepts <code className="font-mono">fontWeight</code> and <code className="font-mono">fontStyle</code>.</td>
 								</tr>
 								<tr className="border-t border-white/10 hover:bg-white/5 transition-colors">
 									<td className="py-2 pr-6 font-mono">revokeFont(url)</td>
@@ -171,7 +176,11 @@ const url = applyFontBlob('MyFont', fontToBlob(font))
 								</tr>
 								<tr className="border-t border-white/10 hover:bg-white/5 transition-colors">
 									<td className="py-2 pr-6 font-mono">useGlyphFont(source)</td>
-									<td className="py-2">React hook — accepts a URL string or File; returns {'{font, loading, error}'}.</td>
+									<td className="py-2">React hook — accepts a URL string, File, or <code className="font-mono">null</code> (resets to idle). Supports TTF, OTF, and WOFF1; for WOFF2 use <code className="font-mono">parseFont()</code> directly. Returns <code className="font-mono">{'{font, loading, error}'}</code>.</td>
+								</tr>
+								<tr className="border-t border-white/10 hover:bg-white/5 transition-colors">
+									<td className="py-2 pr-6 font-mono">GlyphShaperEditor</td>
+									<td className="py-2">Drop-in React component — handles font loading, glyph state, and bezier editing in a single wrapper. Accepts <code className="font-mono">font</code>, <code className="font-mono">fontFamily</code>, and <code className="font-mono">text</code>.</td>
 								</tr>
 								<tr className="border-t border-white/10 hover:bg-white/5 transition-colors">
 									<td className="py-2 pr-6 font-mono">GlyphSvgEditor</td>
@@ -183,10 +192,13 @@ const url = applyFontBlob('MyFont', fontToBlob(font))
 					<div className="flex flex-col gap-3">
 						<p className="opacity-50">Font format support</p>
 						<p className="text-xs opacity-60 leading-relaxed">
-							glyphShaper accepts <strong>TTF, OTF, WOFF1, and WOFF2</strong>. WOFF2 is
-							transparently decompressed in the browser using{" "}
-							<code className="font-mono">wawoff2</code> (a WASM brotli decoder) before
-							being passed to opentype.js — no conversion step needed.
+							glyphShaper accepts <strong>TTF, OTF, WOFF1, and WOFF2</strong>. WOFF2 support
+							requires passing a <code className="font-mono">woff2Decompressor</code> callback
+							to <code className="font-mono">parseFont()</code> — the demo uses{" "}
+							<code className="font-mono">wawoff2</code> (a WASM brotli decoder) for this.
+							The <code className="font-mono">useGlyphFont</code> hook does not accept a
+							decompressor and therefore does not support WOFF2; use{" "}
+							<code className="font-mono">parseFont()</code> directly if you need WOFF2.
 						</p>
 					</div>
 				</div>

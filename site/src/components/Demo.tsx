@@ -1,7 +1,7 @@
 "use client"
 
 // Interactive demo — loads Inter by default; file upload replaces it
-import { useState, useRef, useCallback, useEffect } from "react"
+import { useState, useRef, useCallback, useEffect, useMemo, memo } from "react"
 import {
 	parseFont, applyFontBlob, fontToBlob,
 	getGlyphCommands, setGlyphCommands,
@@ -28,8 +28,14 @@ const PARA_2 = "Sphinx of black quartz, judge my vow. The quick brown fox jumps 
 /** Every unique character across both paragraphs — snapshotted at parse time */
 const ALL_DEMO_TEXT = PARA_1 + PARA_2
 
+/** Maximum font file size accepted before sending to the WOFF2 decompression endpoint (10 MB) */
+const MAX_WOFF2_BYTES = 10 * 1024 * 1024
+
 /** Server-side WOFF2 decompressor — keeps wawoff2 out of the browser bundle */
 async function decompressWoff2(buffer: ArrayBuffer): Promise<ArrayBuffer> {
+	if (buffer.byteLength > MAX_WOFF2_BYTES) {
+		throw new Error(`WOFF2 file too large (max ${MAX_WOFF2_BYTES / 1024 / 1024} MB)`)
+	}
 	const res = await fetch("/api/decompress-woff2", { method: "POST", body: buffer })
 	if (!res.ok) throw new Error(`WOFF2 decompression failed (${res.status})`)
 	return res.arrayBuffer()
@@ -111,15 +117,17 @@ function applyTransform(cmds: PathCommand[], cx: number, adj: Adjustments): Path
 function AdjSlider({ label, value, min, max, onChange, title }: {
 	label: string; value: number; min: number; max: number; onChange: (v: number) => void; title?: string
 }) {
+	// Derive a stable id from the label so the <label> htmlFor can reference the <input>
+	const id = `adj-${label.toLowerCase().replace(/\s+/g, "-")}`
 	return (
 		<div className="flex flex-col gap-1">
 			<div className="flex justify-between items-baseline">
-				<label className="text-xs opacity-50">{label}</label>
+				<label htmlFor={id} className="text-xs opacity-50">{label}</label>
 				<span className="text-xs opacity-30 font-mono tabular-nums" style={{ minWidth: "2.5rem", textAlign: "right" }}>
 					{value > 0 ? `+${value}` : value}
 				</span>
 			</div>
-			<input type="range" min={min} max={max} step={1} value={value} aria-label={label}
+			<input id={id} type="range" min={min} max={max} step={1} value={value}
 				title={title} onChange={e => onChange(Number(e.target.value))} className="w-full" />
 		</div>
 	)
@@ -127,18 +135,36 @@ function AdjSlider({ label, value, min, max, onChange, title }: {
 
 // ─── Tooltip ─────────────────────────────────────────────────────────────────
 
-const TOOLTIP_W = 308
-const APPROX_TOOLTIP_H = 252 // used for initial above/below placement
+/** Tooltip width: min of 308px or viewport width minus 16px padding */
+function getTooltipW(): number {
+	return typeof window !== "undefined" ? Math.min(308, window.innerWidth - 16) : 308
+}
+
+const APPROX_TOOLTIP_H = 320 // conservative height covering both Adjust and Path tab content
 
 /** Compute initial top-left position anchored to a character's rect */
 function getInitialPos(anchor: DOMRect): { left: number; top: number } {
-	const GAP  = 12
-	const midX = anchor.left + anchor.width / 2
-	const left = Math.max(8, Math.min(midX - TOOLTIP_W / 2, window.innerWidth - TOOLTIP_W - 8))
+	const GAP     = 12
+	const w       = getTooltipW()
+	const midX    = anchor.left + anchor.width / 2
+	const left    = Math.max(8, Math.min(midX - w / 2, window.innerWidth - w - 8))
 	if (anchor.top - GAP - APPROX_TOOLTIP_H >= 8) {
 		return { left, top: anchor.top - GAP - APPROX_TOOLTIP_H }
 	}
 	return { left, top: Math.min(anchor.bottom + GAP, window.innerHeight - APPROX_TOOLTIP_H - 8) }
+}
+
+/** Clamp a drag offset so the tooltip stays within the viewport */
+function clampOffset(initPos: { left: number; top: number }, offset: { x: number; y: number }, tooltipW: number): { x: number; y: number } {
+	const margin  = 8
+	const minX    = margin - initPos.left
+	const maxX    = window.innerWidth  - tooltipW - margin - initPos.left
+	const minY    = margin - initPos.top
+	const maxY    = window.innerHeight - APPROX_TOOLTIP_H - margin - initPos.top
+	return {
+		x: Math.max(minX, Math.min(offset.x, maxX)),
+		y: Math.max(minY, Math.min(offset.y, maxY)),
+	}
 }
 
 function Tooltip({
@@ -175,7 +201,7 @@ function Tooltip({
 		return () => mq.removeEventListener("change", onChange)
 	}, [])
 
-	const theme = {
+	const theme = useMemo(() => ({
 		bg:          dark ? "rgba(10,10,12,0.97)"     : "rgba(250,250,252,0.97)",
 		border:      dark ? "rgba(255,255,255,0.1)"   : "rgba(0,0,0,0.1)",
 		divider:     dark ? "rgba(255,255,255,0.07)"  : "rgba(0,0,0,0.07)",
@@ -189,10 +215,11 @@ function Tooltip({
 		btnBorder:   dark ? "rgba(255,255,255,0.2)"   : "rgba(0,0,0,0.15)",
 		btnPrimBorder: dark ? "rgba(212,184,240,0.6)" : "rgba(105,55,185,0.5)",
 		btnPrimBg:   dark ? "rgba(212,184,240,0.1)"   : "rgba(105,55,185,0.08)",
-	}
+	}), [dark])
 
 	// ── Drag ──────────────────────────────────────────────────────────────────
 	const [initPos]     = useState(() => getInitialPos(anchor))
+	const tooltipW      = useMemo(() => getTooltipW(), [])
 	const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
 	const isDragging    = useRef(false)
 	const dragOrigin    = useRef({ mx: 0, my: 0, ox: 0, oy: 0 })
@@ -209,10 +236,11 @@ function Tooltip({
 
 	function onHeaderMove(e: React.PointerEvent<HTMLDivElement>) {
 		if (!isDragging.current) return
-		setDragOffset({
+		const raw = {
 			x: dragOrigin.current.ox + e.clientX - dragOrigin.current.mx,
 			y: dragOrigin.current.oy + e.clientY - dragOrigin.current.my,
-		})
+		}
+		setDragOffset(clampOffset(initPos, raw, tooltipW))
 	}
 
 	function onHeaderUp() {
@@ -222,21 +250,38 @@ function Tooltip({
 		document.body.style.userSelect = ""
 	}
 
+	// Keyboard repositioning — arrow keys move the tooltip 10px per press
+	function onHeaderKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+		const STEP = 10
+		let dx = 0, dy = 0
+		if (e.key === "ArrowLeft")  { dx = -STEP; e.preventDefault() }
+		if (e.key === "ArrowRight") { dx =  STEP; e.preventDefault() }
+		if (e.key === "ArrowUp")    { dy = -STEP; e.preventDefault() }
+		if (e.key === "ArrowDown")  { dy =  STEP; e.preventDefault() }
+		if (dx !== 0 || dy !== 0) {
+			setDragOffset(prev => clampOffset(initPos, { x: prev.x + dx, y: prev.y + dy }, tooltipW))
+		}
+	}
+
 	const left = initPos.left + dragOffset.x
 	const top  = initPos.top  + dragOffset.y
 
-	// ── Keyboard shortcut ─────────────────────────────────────────────────────
+	// ── Keyboard shortcuts ────────────────────────────────────────────────────
 	useEffect(() => {
-		if (tab !== "path") return
 		function onKey(e: KeyboardEvent) {
-			if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === "z") {
+			if (e.key === "Escape") {
+				e.preventDefault()
+				onClose()
+				return
+			}
+			if (tab === "path" && (e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === "z") {
 				e.preventDefault()
 				onBezierUndo()
 			}
 		}
 		window.addEventListener("keydown", onKey)
 		return () => window.removeEventListener("keydown", onKey)
-	}, [tab, onBezierUndo])
+	}, [tab, onBezierUndo, onClose])
 
 	// Clean up body cursor if tooltip unmounts while dragging
 	useEffect(() => () => {
@@ -246,22 +291,23 @@ function Tooltip({
 
 	const canUndo = bezierHistory.length > 0
 
-	function btn(primary: boolean, disabled = false): React.CSSProperties {
-		return {
-			fontSize: 11, padding: "4px 10px", borderRadius: 20,
-			border: primary ? `1px solid ${theme.btnPrimBorder}` : `1px solid ${theme.btnBorder}`,
-			background: primary ? theme.btnPrimBg : "transparent",
-			color: theme.text,
-			opacity: disabled ? 0.25 : 1,
-			cursor: disabled ? "default" : "pointer",
-			transition: "opacity 0.12s",
-		}
-	}
+	const btn = useCallback((primary: boolean, disabled = false): React.CSSProperties => ({
+		fontSize: 11, padding: "4px 10px", borderRadius: 20,
+		border: primary ? `1px solid ${theme.btnPrimBorder}` : `1px solid ${theme.btnBorder}`,
+		background: primary ? theme.btnPrimBg : "transparent",
+		color: theme.text,
+		opacity: disabled ? 0.25 : 1,
+		cursor: disabled ? "default" : "pointer",
+		transition: "opacity 0.12s",
+	}), [theme])
 
 	return (
 		<div
+			role="dialog"
+			aria-label={`Glyph editor for "${char}"`}
+			aria-modal="true"
 			style={{
-				position: "fixed", left, top, width: TOOLTIP_W, zIndex: 200,
+				position: "fixed", left, top, width: tooltipW, zIndex: 200,
 				background: theme.bg,
 				border: `1px solid ${theme.border}`,
 				borderRadius: 10,
@@ -272,11 +318,14 @@ function Tooltip({
 				color: theme.text,
 			}}
 		>
-			{/* Draggable header */}
+			{/* Draggable header — arrow keys reposition the panel, Escape closes it */}
 			<div
+				tabIndex={0}
+				aria-label="Drag to reposition glyph editor. Use arrow keys to move with keyboard."
 				onPointerDown={onHeaderDown}
 				onPointerMove={onHeaderMove}
 				onPointerUp={onHeaderUp}
+				onKeyDown={onHeaderKeyDown}
 				style={{
 					display: "flex",
 					alignItems: "center",
@@ -290,10 +339,13 @@ function Tooltip({
 				<span style={{ fontFamily: DEMO_FAMILY, fontSize: 18, lineHeight: 1, color: theme.accent, minWidth: 20 }}>
 					{char}
 				</span>
-				<div style={{ display: "flex", gap: 4, flex: 1 }}>
+				<div role="tablist" aria-label="Glyph editor tabs" style={{ display: "flex", gap: 4, flex: 1 }}>
 					{(["adjust", "path"] as const).map(t => (
 						<button
 							key={t}
+							role="tab"
+							aria-selected={tab === t}
+							aria-controls={`tab-panel-${t}`}
 							onClick={() => setTab(t)}
 							title={t === "adjust" ? "Reshape this glyph using width and stroke-thickness sliders" : "Edit the raw Bézier path points and handles for this glyph"}
 							style={{
@@ -312,7 +364,7 @@ function Tooltip({
 				</div>
 				<button
 					onClick={onClose}
-					aria-label="Close"
+					aria-label="Close glyph editor"
 					title="Close this glyph editor and deselect the character"
 					style={{
 						fontSize: 16, lineHeight: 1,
@@ -327,7 +379,7 @@ function Tooltip({
 
 			{/* Adjust tab */}
 			{tab === "adjust" && (
-				<div style={{ padding: "14px 14px 12px" }}>
+				<div id="tab-panel-adjust" role="tabpanel" aria-label="Adjust tab" style={{ padding: "14px 14px 12px" }}>
 					<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 						<AdjSlider label="Width"           value={charAdj.width}     min={-50} max={100} onChange={v => onCharAdjChange("width",     v)} title="Scale this glyph horizontally around its centre — positive values widen it, negative values condense it" />
 						<AdjSlider label="Shoulders"       value={charAdj.shoulders} min={-80} max={100} onChange={v => onCharAdjChange("shoulders", v)} title="Stretch or compress the Bézier handle offsets — higher values add more curve tension and roundness to this glyph's strokes" />
@@ -335,7 +387,12 @@ function Tooltip({
 						<AdjSlider label="Right thickness" value={charAdj.rightSide} min={-50} max={100} onChange={v => onCharAdjChange("rightSide", v)} title="Thicken or thin the right half of this glyph's strokes independently of the left side" />
 					</div>
 					<div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
-						<button onClick={onResetCharAdj} title="Remove all per-character adjustments and restore this glyph to the global slider values" style={{ fontSize: 11, color: theme.dim, cursor: "pointer", background: "transparent", border: "none" }}>
+						<button
+							onClick={onResetCharAdj}
+							aria-label={`Reset per-character adjustments for "${char}"`}
+							title="Remove all per-character adjustments and restore this glyph to the global slider values"
+							style={{ fontSize: 11, color: theme.dim, cursor: "pointer", background: "transparent", border: "none" }}
+						>
 							Reset
 						</button>
 					</div>
@@ -344,7 +401,7 @@ function Tooltip({
 
 			{/* Path tab */}
 			{tab === "path" && (
-				<div>
+				<div id="tab-panel-path" role="tabpanel" aria-label="Path tab">
 					<div style={{ padding: "6px 10px 0" }}>
 						<p style={{ fontSize: 10, color: theme.dim, fontFamily: "sans-serif" }}>
 							Drag filled circles (anchors) or outlined (handles) to reshape
@@ -370,7 +427,7 @@ function Tooltip({
 
 // ─── Clickable text ───────────────────────────────────────────────────────────
 
-function ClickableText({ text, selectedChar, onSelect, style }: {
+const ClickableText = memo(function ClickableText({ text, selectedChar, onSelect, style }: {
 	text: string
 	selectedChar: string | null
 	onSelect: (ch: string | null, rect: DOMRect) => void
@@ -379,7 +436,7 @@ function ClickableText({ text, selectedChar, onSelect, style }: {
 	return (
 		<span style={style}>
 			{text.split("").map((ch, i) => {
-				if (ch === " ") return <span key={i}>{" "}</span>
+				if (ch === " ") return <span key={i} aria-hidden="true">{" "}</span>
 				const isSelected = selectedChar === ch
 				return (
 					<span
@@ -393,7 +450,8 @@ function ClickableText({ text, selectedChar, onSelect, style }: {
 							onSelect(isSelected ? null : ch, rect)
 						}}
 						onKeyDown={e => {
-							if (e.key === "Enter") {
+							if (e.key === "Enter" || e.key === " ") {
+								e.preventDefault()
 								const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
 								onSelect(isSelected ? null : ch, rect)
 							}
@@ -411,7 +469,7 @@ function ClickableText({ text, selectedChar, onSelect, style }: {
 			})}
 		</span>
 	)
-}
+})
 
 // ─── Demo ─────────────────────────────────────────────────────────────────────
 
@@ -546,15 +604,15 @@ export default function Demo() {
 		setBezierHistory([])
 	}
 
-	function handleSelect(ch: string | null, rect: DOMRect) {
+	const handleSelect = useCallback((ch: string | null, rect: DOMRect) => {
 		setSelectedChar(ch)
 		setAnchorRect(ch ? rect : null)
-	}
+	}, [])
 
-	function closeTooltip() {
+	const closeTooltip = useCallback(() => {
 		setSelectedChar(null)
 		setAnchorRect(null)
-	}
+	}, [])
 
 	// Load the default font on mount
 	useEffect(() => {
@@ -619,7 +677,7 @@ export default function Demo() {
 				setLoadPct(100)
 				setFont(parsed)
 				setFileName(DEFAULT_FONT_NAME)
-			} catch (err) {
+			} catch (err: unknown) {
 				if (!cancelled) setError(err instanceof Error ? err.message : "Could not load default font.")
 			} finally {
 				if (!cancelled) { setLoading(false); setLoadStage(null); setLoadPct(0) }
@@ -661,36 +719,41 @@ export default function Demo() {
 			blobUrlRef.current = url
 			setLoadPct(100)
 			setFont(parsed)
-		} catch (err) {
+		} catch (err: unknown) {
 			setError(err instanceof Error ? err.message : "Could not parse this font file.")
 		} finally {
 			setLoading(false); setLoadStage(null); setLoadPct(0)
 		}
 	}, [])
 
-	function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+	const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
 		const file = e.target.files?.[0]
 		if (file) handleFile(file)
 		e.target.value = ""
-	}
+	}, [handleFile])
 
-	function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+	const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
 		e.preventDefault()
 		const file = e.dataTransfer.files[0]
 		if (file) handleFile(file)
-	}
+	}, [handleFile])
 
 	const charAdj = selectedChar ? (charAdjs.get(selectedChar) ?? ADJ_ZERO) : ADJ_ZERO
 	const textStyle: React.CSSProperties = { fontFamily: DEMO_FAMILY, fontSize: "1.125rem", lineHeight: "1.8" }
+
+	const [isDragOver, setIsDragOver] = useState(false)
 
 	return (
 		<div className="w-full">
 
 			{/* Upload zone */}
 			<div
-				onDrop={handleDrop}
-				onDragOver={e => e.preventDefault()}
-				className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-white/20 py-8 px-6 text-center transition-colors hover:border-white/40 mb-6"
+				onDrop={e => { setIsDragOver(false); handleDrop(e) }}
+				onDragOver={e => { e.preventDefault(); setIsDragOver(true) }}
+				onDragEnter={() => setIsDragOver(true)}
+				onDragLeave={() => setIsDragOver(false)}
+				aria-label="Font file drop zone — drag a TTF, OTF, WOFF, or WOFF2 font file here"
+				className={`flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed py-8 px-6 text-center transition-colors mb-6 ${isDragOver ? "border-white/60 bg-white/5" : "border-white/20 hover:border-white/40"}`}
 			>
 				<p className="text-xs uppercase tracking-widest opacity-50">
 					{loading ? (loadStage ?? "Loading…") : fileName ? `Loaded: ${fileName}` : "Drop a font file or click to browse"}
@@ -700,11 +763,11 @@ export default function Demo() {
 				)}
 				<label title="Upload a TTF, OTF, WOFF, or WOFF2 file to replace the current demo font" className="text-xs px-4 py-2 rounded-full border border-white/30 cursor-pointer hover:bg-white/5 transition-colors">
 					{font ? "Swap font" : "Choose TTF / OTF / WOFF / WOFF2"}
-					<input type="file" accept={ACCEPT} onChange={handleInputChange} className="sr-only" aria-label="Upload a font file" title="Upload a TTF, OTF, WOFF, or WOFF2 font file to use in the demo" />
+					<input type="file" accept={ACCEPT} onChange={handleInputChange} className="sr-only" aria-label="Upload a font file (TTF, OTF, WOFF, or WOFF2)" title="Upload a TTF, OTF, WOFF, or WOFF2 font file to use in the demo" />
 				</label>
 			</div>
 
-			{error && <p className="text-xs text-red-400 opacity-80 mb-6">{error}</p>}
+			{error && <p role="alert" aria-live="assertive" className="text-xs text-red-400 opacity-80 mb-6">{error}</p>}
 
 			{/* Loading progress */}
 			{loading && (
@@ -714,8 +777,15 @@ export default function Demo() {
 						<p className="text-xs opacity-30 font-mono tabular-nums">{loadPct}%</p>
 					</div>
 					<div className="w-full h-px rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
-						<div className="h-full rounded-full transition-all duration-300"
-							style={{ width: `${loadPct}%`, background: "rgba(255,255,255,0.4)" }} />
+						<div
+							role="progressbar"
+							aria-valuenow={loadPct}
+							aria-valuemin={0}
+							aria-valuemax={100}
+							aria-label={`Loading font: ${loadPct}%`}
+							className="h-full rounded-full transition-all duration-300"
+							style={{ width: `${loadPct}%`, background: "rgba(255,255,255,0.4)" }}
+						/>
 					</div>
 				</div>
 			)}
@@ -738,7 +808,7 @@ export default function Demo() {
 
 					{/* Reset global */}
 					<div className="flex justify-end mt-4">
-						<button onClick={resetGlobalAdj} title="Clear all global slider adjustments and restore every glyph to its original shape" className="text-xs opacity-30 hover:opacity-60 transition-opacity">
+						<button onClick={resetGlobalAdj} aria-label="Reset all global adjustments and restore every glyph to its original shape" title="Clear all global slider adjustments and restore every glyph to its original shape" className="text-xs opacity-30 hover:opacity-60 transition-opacity">
 							Reset all
 						</button>
 					</div>
