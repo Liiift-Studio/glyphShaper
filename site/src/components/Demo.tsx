@@ -122,8 +122,8 @@ function AdjSlider({ label, value, min, max, onChange, title }: {
 	return (
 		<div className="flex flex-col gap-1">
 			<div className="flex justify-between items-baseline">
-				<label htmlFor={id} className="text-xs opacity-50">{label}</label>
-				<span className="text-xs opacity-30 font-mono tabular-nums" style={{ minWidth: "2.5rem", textAlign: "right" }}>
+				<label htmlFor={id} className="text-xs text-muted">{label}</label>
+				<span className="text-xs text-subtle font-mono tabular-nums" style={{ minWidth: "2.5rem", textAlign: "right" }}>
 					{value > 0 ? `+${value}` : value}
 				</span>
 			</div>
@@ -755,11 +755,11 @@ export default function Demo() {
 				aria-label="Font file drop zone — drag a TTF, OTF, WOFF, or WOFF2 font file here"
 				className={`flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed py-8 px-6 text-center transition-colors mb-6 ${isDragOver ? "border-white/60 bg-white/5" : "border-white/20 hover:border-white/40"}`}
 			>
-				<p className="text-xs uppercase tracking-widest opacity-50">
+				<p className="text-xs uppercase tracking-[0.18em] font-medium text-muted">
 					{loading ? (loadStage ?? "Loading…") : fileName ? `Loaded: ${fileName}` : "Drop a font file or click to browse"}
 				</p>
 				{fileName && !loading && fileName !== DEFAULT_FONT_NAME && (
-					<p className="text-xs opacity-40 font-mono">{fileName}</p>
+					<p className="text-xs text-subtle font-mono">{fileName}</p>
 				)}
 				<label title="Upload a TTF, OTF, WOFF, or WOFF2 file to replace the current demo font" className="text-xs px-4 py-2 rounded-full border border-white/30 cursor-pointer hover:bg-white/5 transition-colors">
 					{font ? "Swap font" : "Choose TTF / OTF / WOFF / WOFF2"}
@@ -773,8 +773,8 @@ export default function Demo() {
 			{loading && (
 				<div className="rounded-xl px-6 py-8 flex flex-col gap-4 mb-6" style={{ background: "rgba(0,0,0,0.2)" }}>
 					<div className="flex items-center justify-between">
-						<p className="text-xs opacity-50 tracking-widest uppercase">{loadStage ?? "Loading…"}</p>
-						<p className="text-xs opacity-30 font-mono tabular-nums">{loadPct}%</p>
+						<p className="text-xs text-muted tracking-widest uppercase">{loadStage ?? "Loading…"}</p>
+						<p className="text-xs text-subtle font-mono tabular-nums">{loadPct}%</p>
 					</div>
 					<div className="w-full h-px rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
 						<div
@@ -808,7 +808,7 @@ export default function Demo() {
 
 					{/* Reset global */}
 					<div className="flex justify-end mt-4">
-						<button onClick={resetGlobalAdj} aria-label="Reset all global adjustments and restore every glyph to its original shape" title="Clear all global slider adjustments and restore every glyph to its original shape" className="text-xs opacity-30 hover:opacity-60 transition-opacity">
+						<button onClick={resetGlobalAdj} aria-label="Reset all global adjustments and restore every glyph to its original shape" title="Clear all global slider adjustments and restore every glyph to its original shape" className="text-xs text-muted hover:text-foreground transition-colors">
 							Reset all
 						</button>
 					</div>
@@ -817,7 +817,7 @@ export default function Demo() {
 
 			{/* Caption */}
 			{!loading && (
-				<p className="text-xs opacity-50 italic mt-6" style={{ lineHeight: "1.8" }}>
+				<p className="text-xs text-muted italic mt-6" style={{ lineHeight: "1.8" }}>
 					{font
 						? "Click any character to open per-glyph sliders and the bezier path editor. Global sliders reshape every glyph at once."
 						: "Loaded with Inter by default — swap it for any TTF, OTF, WOFF, or WOFF2 above."
