@@ -5,5 +5,8 @@
 :root {
 	--background: oklch(0.17 0.0800 190);
 	--foreground: oklch(0.93 0.03 190);
+	--foreground-muted: oklch(0.78 0.025 190);
+	--foreground-subtle: oklch(0.66 0.020 190);
+	--foreground-faint: oklch(0.55 0.016 190);
 	--btn-bg: oklch(0.24 0.0480 190);
 }
