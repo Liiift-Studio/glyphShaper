@@ -4,7 +4,13 @@
 
 CSS and JavaScript have no native way to reshape individual glyph outlines after the font loads. `glyphShaper` parses the font binary in the browser, lets you drag bezier control points to edit any character's outline, then regenerates the font and injects a `@font-face` override — every instance of that character on the page re-renders instantly, no page reload required.
 
-**[glyphshaper.com](https://glyphshaper.com)** · [npm](https://www.npmjs.com/package/@liiift-studio/glyphshaper) · [GitHub](https://github.com/Liiift-Studio/glyphShaper)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Liiift-Studio/glyphShaper/main/assets/editor.png?v=1" width="420" alt="The glyphShaper bezier editor open on the letter 'g': every anchor point (filled circles) and bezier handle (outlined circles) of the glyph outline is draggable, with Adjust/Path tabs and an 'Apply to page' button." />
+</p>
+
+**[Try it live at glyphshaper.com →](https://glyphshaper.com)** · [npm](https://www.npmjs.com/package/@liiift-studio/glyphshaper) · [GitHub](https://github.com/Liiift-Studio/glyphShaper)
+
+> **What you can build:** bespoke display lettering and logotypes, one-off headline cuts, reshaped terminals or swashes on a single hero letter — any per-glyph outline edit that propagates live to real page text. Drag points in the editor, or drive the lower-level functions to transform outlines programmatically.
 
 TypeScript · React · Requires `opentype.js` (peer dep) · Optional: `wawoff2` for WOFF2 support
 
@@ -30,7 +36,9 @@ npm install wawoff2
 
 > **Next.js App Router:** this library uses browser APIs. Add `"use client"` to any component file that imports from it.
 
-> **Font format:** `glyphShaper` accepts TTF, OTF, WOFF1, and WOFF2. The font must be loaded from a URL accessible to `fetch()` (or supplied as a `File` object via `<input type="file">`).
+> **Font format:** `glyphShaper` accepts TTF, OTF, WOFF1, and — with the optional `wawoff2` dep and a supplied decompressor — WOFF2. The font must be loaded from a URL accessible to `fetch()` (or supplied as a `File` object via `<input type="file">`). **WOFF2 needs a decompressor:** `useGlyphFont` cannot take one, so it throws on WOFF2 input — for WOFF2, call `parseFont(buffer, woff2Decompressor)` directly (see [`parseFont`](#parsefontbuffer-woff2decompressor) below).
+
+> **Variable fonts:** opentype.js re-serialises only the static outline, not the `gvar`/`fvar`/`avar`/`STAT` tables. After `applyFontBlob()`, the overridden family is a **static snapshot** — any CSS `font-variation-settings` on the page will no longer take effect for that family. `glyphShaper` logs a `console.warn` when it detects a variable font.
 
 ### React component
 
@@ -52,6 +60,12 @@ export default function MyPage() {
 ```
 
 The `fontFamily` prop must match the CSS `font-family` value already applied to your page text — this is what the `@font-face` override targets.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Liiift-Studio/glyphShaper/main/assets/hero.png?v=1" width="760" alt="The interactive demo: global width and shoulder sliders reshape every glyph at once, with the bezier editor open on one character — the editorial paragraphs below re-render live in the widened, reshaped font." />
+</p>
+
+Edited glyphs live only for the page session — to keep one, pass the `Blob` from `fontToBlob(font)` to `URL.createObjectURL()` and offer it via an `<a download="edited.otf">`.
 
 ### React hook — font loading only
 
@@ -141,7 +155,7 @@ Writes modified commands back into the font object in place. The change takes ef
 
 ### `fontToBlob(font)`
 
-Serialises the (possibly modified) font back to an `ArrayBuffer` using opentype.js's download path.
+Serialises the (possibly modified) font using opentype.js's `toArrayBuffer()` and wraps the bytes in a `Blob` (`font/opentype`), ready to pass to `applyFontBlob()`.
 
 ### `applyFontBlob(fontFamily, blob, previousUrl?, options?)`
 
@@ -193,7 +207,16 @@ Lower-level React component that exposes only the SVG bezier editor. Use this wh
 
 **Undo:** Each drag operation pushes a pre-drag snapshot of the commands array onto a bounded history stack (max 50 entries). Undo restores the last snapshot. `Ctrl+Z` / `Cmd+Z` is handled via a `keydown` listener while the editor panel is open.
 
-**Font-face override:** After "Apply", `setGlyphCommands` writes the modified path back into the live opentype.js font object, `fontToBlob()` re-serialises the entire font to an `ArrayBuffer`, and `applyFontBlob()` creates a Blob URL and injects a `@font-face` rule at a higher specificity than the original. Every instance of the character on the page re-renders immediately without a reload.
+**Font-face override:** After "Apply", `setGlyphCommands` writes the modified path back into the live opentype.js font object, `fontToBlob()` re-serialises the entire font to an `ArrayBuffer`, and `applyFontBlob()` creates a Blob URL and injects a late `@font-face` rule reusing the same family name. Because `@font-face` resolves by family name and source order (not selector specificity), the later rule wins, and every instance of the character on the page re-renders immediately without a reload.
+
+---
+
+## Privacy & lifecycle
+
+- **Everything runs in the browser.** The font is parsed, edited, and re-serialised entirely client-side. `glyphShaper` makes no network calls and sends no telemetry — your font bytes never leave the page.
+- **The override is ephemeral.** `applyFontBlob()` creates a same-origin `blob:` URL and a `<style>` tag that live only for the page session. Nothing is persisted; a reload restores the original font.
+- **Clean up to avoid leaks.** Each `applyFontBlob()` returns its Blob URL. Pass it back as `previousUrl` on the next call, or call `revokeFont(url)` when done — otherwise the Blob URL and its `<style>` tag are orphaned. `GlyphShaperEditor` manages this for you; if you drive the lower-level functions yourself, you own the cleanup.
+- **Licensing is your responsibility.** Reshaping and re-serialising a font may be restricted by its EULA. Only edit fonts you are licensed to modify.
 
 ---
 
@@ -214,4 +237,4 @@ config.resolve.fallback = { ...config.resolve.fallback, fs: false, path: false }
 
 ---
 
-Current version: 1.0.9
+Current version: 1.0.11
