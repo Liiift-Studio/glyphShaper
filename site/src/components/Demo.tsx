@@ -203,16 +203,16 @@ function Tooltip({
 
 	const theme = useMemo(() => ({
 		bg:          dark ? "rgba(10,10,12,0.97)"     : "rgba(250,250,252,0.97)",
-		border:      dark ? "rgba(255,255,255,0.1)"   : "rgba(0,0,0,0.1)",
-		divider:     dark ? "rgba(255,255,255,0.07)"  : "rgba(0,0,0,0.07)",
+		border:      dark ? "color-mix(in oklch, var(--foreground) 10%, transparent)"   : "rgba(0,0,0,0.1)",
+		divider:     dark ? "color-mix(in oklch, var(--foreground) 7%, transparent)"  : "rgba(0,0,0,0.07)",
 		shadow:      dark ? "0 8px 32px rgba(0,0,0,0.55)" : "0 8px 32px rgba(0,0,0,0.14)",
-		text:        dark ? "rgba(255,255,255,0.85)"  : "rgba(15,15,15,0.9)",
-		dim:         dark ? "rgba(255,255,255,0.35)"  : "rgba(0,0,0,0.4)",
+		text:        dark ? "color-mix(in oklch, var(--foreground) 85%, transparent)"  : "rgba(15,15,15,0.9)",
+		dim:         dark ? "color-mix(in oklch, var(--foreground) 35%, transparent)"  : "rgba(0,0,0,0.4)",
 		accent:      dark ? "rgba(212,184,240,1)"     : "rgba(105,55,185,1)",
 		accentBg:    dark ? "rgba(212,184,240,0.12)"  : "rgba(105,55,185,0.09)",
-		tabBorder:   dark ? "rgba(255,255,255,0.18)"  : "rgba(0,0,0,0.15)",
-		tabInactive: dark ? "rgba(255,255,255,0.38)"  : "rgba(0,0,0,0.38)",
-		btnBorder:   dark ? "rgba(255,255,255,0.2)"   : "rgba(0,0,0,0.15)",
+		tabBorder:   dark ? "color-mix(in oklch, var(--foreground) 18%, transparent)"  : "rgba(0,0,0,0.15)",
+		tabInactive: dark ? "color-mix(in oklch, var(--foreground) 38%, transparent)"  : "rgba(0,0,0,0.38)",
+		btnBorder:   dark ? "color-mix(in oklch, var(--foreground) 20%, transparent)"   : "rgba(0,0,0,0.15)",
 		btnPrimBorder: dark ? "rgba(212,184,240,0.6)" : "rgba(105,55,185,0.5)",
 		btnPrimBg:   dark ? "rgba(212,184,240,0.1)"   : "rgba(105,55,185,0.08)",
 	}), [dark])
@@ -753,7 +753,7 @@ export default function Demo() {
 				onDragEnter={() => setIsDragOver(true)}
 				onDragLeave={() => setIsDragOver(false)}
 				aria-label="Font file drop zone — drag a TTF, OTF, WOFF, or WOFF2 font file here"
-				className={`flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed py-8 px-6 text-center transition-colors mb-6 ${isDragOver ? "border-white/60 bg-white/5" : "border-white/20 hover:border-white/40"}`}
+				className={`flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed py-8 px-6 text-center transition-colors mb-6 ${isDragOver ? "border-foreground/60 bg-foreground/5" : "border-foreground/20 hover:border-foreground/40"}`}
 			>
 				<p className="text-xs uppercase tracking-[0.18em] font-medium text-muted">
 					{loading ? (loadStage ?? "Loading…") : fileName ? `Loaded: ${fileName}` : "Drop a font file or click to browse"}
@@ -761,7 +761,7 @@ export default function Demo() {
 				{fileName && !loading && fileName !== DEFAULT_FONT_NAME && (
 					<p className="text-xs text-subtle font-mono">{fileName}</p>
 				)}
-				<label title="Upload a TTF, OTF, WOFF, or WOFF2 file to replace the current demo font" className="text-xs px-4 py-2 rounded-full border border-white/30 cursor-pointer hover:bg-white/5 transition-colors">
+				<label title="Upload a TTF, OTF, WOFF, or WOFF2 file to replace the current demo font" className="text-xs px-4 py-2 rounded-full border border-foreground/30 cursor-pointer hover:bg-foreground/5 transition-colors">
 					{font ? "Swap font" : "Choose TTF / OTF / WOFF / WOFF2"}
 					<input type="file" accept={ACCEPT} onChange={handleInputChange} className="sr-only" aria-label="Upload a font file (TTF, OTF, WOFF, or WOFF2)" title="Upload a TTF, OTF, WOFF, or WOFF2 font file to use in the demo" />
 				</label>
@@ -776,7 +776,7 @@ export default function Demo() {
 						<p className="text-xs text-muted tracking-widest uppercase">{loadStage ?? "Loading…"}</p>
 						<p className="text-xs text-subtle font-mono tabular-nums">{loadPct}%</p>
 					</div>
-					<div className="w-full h-px rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
+					<div className="w-full h-px rounded-full overflow-hidden" style={{ background: "color-mix(in oklch, var(--foreground) 8%, transparent)" }}>
 						<div
 							role="progressbar"
 							aria-valuenow={loadPct}
@@ -784,7 +784,7 @@ export default function Demo() {
 							aria-valuemax={100}
 							aria-label={`Loading font: ${loadPct}%`}
 							className="h-full rounded-full transition-all duration-300"
-							style={{ width: `${loadPct}%`, background: "rgba(255,255,255,0.4)" }}
+							style={{ width: `${loadPct}%`, background: "color-mix(in oklch, var(--foreground) 40%, transparent)" }}
 						/>
 					</div>
 				</div>
