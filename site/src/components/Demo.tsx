@@ -203,16 +203,16 @@ function Tooltip({
 
 	const theme = useMemo(() => ({
 		bg:          dark ? "rgba(10,10,12,0.97)"     : "rgba(250,250,252,0.97)",
-		border:      dark ? "color-mix(in oklch, var(--foreground) 10%, transparent)"   : "rgba(0,0,0,0.1)",
-		divider:     dark ? "color-mix(in oklch, var(--foreground) 7%, transparent)"  : "rgba(0,0,0,0.07)",
-		shadow:      dark ? "0 8px 32px rgba(0,0,0,0.55)" : "0 8px 32px rgba(0,0,0,0.14)",
+		border:      dark ? "color-mix(in oklch, var(--foreground) 10%, transparent)"   : "color-mix(in oklch, var(--foreground) 10%, transparent)",
+		divider:     dark ? "color-mix(in oklch, var(--foreground) 7%, transparent)"  : "color-mix(in oklch, var(--foreground) 7%, transparent)",
+		shadow:      dark ? "0 8px 32px color-mix(in oklch, var(--foreground) 55%, transparent)" : "0 8px 32px color-mix(in oklch, var(--foreground) 14%, transparent)",
 		text:        dark ? "color-mix(in oklch, var(--foreground) 85%, transparent)"  : "rgba(15,15,15,0.9)",
-		dim:         dark ? "color-mix(in oklch, var(--foreground) 35%, transparent)"  : "rgba(0,0,0,0.4)",
+		dim:         dark ? "color-mix(in oklch, var(--foreground) 35%, transparent)"  : "color-mix(in oklch, var(--foreground) 40%, transparent)",
 		accent:      dark ? "rgba(212,184,240,1)"     : "rgba(105,55,185,1)",
 		accentBg:    dark ? "rgba(212,184,240,0.12)"  : "rgba(105,55,185,0.09)",
-		tabBorder:   dark ? "color-mix(in oklch, var(--foreground) 18%, transparent)"  : "rgba(0,0,0,0.15)",
-		tabInactive: dark ? "color-mix(in oklch, var(--foreground) 38%, transparent)"  : "rgba(0,0,0,0.38)",
-		btnBorder:   dark ? "color-mix(in oklch, var(--foreground) 20%, transparent)"   : "rgba(0,0,0,0.15)",
+		tabBorder:   dark ? "color-mix(in oklch, var(--foreground) 18%, transparent)"  : "color-mix(in oklch, var(--foreground) 15%, transparent)",
+		tabInactive: dark ? "color-mix(in oklch, var(--foreground) 38%, transparent)"  : "color-mix(in oklch, var(--foreground) 38%, transparent)",
+		btnBorder:   dark ? "color-mix(in oklch, var(--foreground) 20%, transparent)"   : "color-mix(in oklch, var(--foreground) 15%, transparent)",
 		btnPrimBorder: dark ? "rgba(212,184,240,0.6)" : "rgba(105,55,185,0.5)",
 		btnPrimBg:   dark ? "rgba(212,184,240,0.1)"   : "rgba(105,55,185,0.08)",
 	}), [dark])
@@ -771,7 +771,7 @@ export default function Demo() {
 
 			{/* Loading progress */}
 			{loading && (
-				<div className="rounded-xl px-6 py-8 flex flex-col gap-4 mb-6" style={{ background: "rgba(0,0,0,0.2)" }}>
+				<div className="rounded-xl px-6 py-8 flex flex-col gap-4 mb-6" style={{ background: "color-mix(in oklch, var(--foreground) 20%, transparent)" }}>
 					<div className="flex items-center justify-between">
 						<p className="text-xs text-muted tracking-widest uppercase">{loadStage ?? "Loading…"}</p>
 						<p className="text-xs text-subtle font-mono tabular-nums">{loadPct}%</p>
