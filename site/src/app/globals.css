@@ -9,4 +9,5 @@
 	--foreground-subtle: oklch(0.680 0.0200 198);
 	--foreground-faint: oklch(0.580 0.0160 198);
 	--btn-bg: oklch(0.300 0.0300 198);
+	--panel: oklch(0.270 0.0300 198);
 }
