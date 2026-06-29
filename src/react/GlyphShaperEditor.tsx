@@ -290,8 +290,8 @@ export function GlyphSvgEditor({
 				{commands.length > 0 && (
 					<path
 						d={pathD}
-						fill="rgba(212,184,240,0.12)"
-						stroke="rgba(212,184,240,0.55)"
+						fill="rgba(53,221,226,0.12)"
+						stroke="rgba(53,221,226,0.55)"
 						strokeWidth={2 / scale}
 						fillRule="nonzero"
 					/>
@@ -322,8 +322,8 @@ export function GlyphSvgEditor({
 						aria-label={`${pt.kind === 'anchor' ? 'Anchor' : 'Handle'} point ${i + 1} of ${dragPoints.length}`}
 						tabIndex={0}
 						cx={cx} cy={cy} r={r}
-						fill={pt.kind === 'anchor' ? 'rgba(212,184,240,0.9)' : 'rgba(0,0,0,0)'}
-						stroke="rgba(212,184,240,0.75)"
+						fill={pt.kind === 'anchor' ? 'rgba(53,221,226,0.9)' : 'rgba(0,0,0,0)'}
+						stroke="rgba(53,221,226,0.75)"
 						strokeWidth={1.5}
 						style={{ cursor: 'grab' }}
 						onPointerDown={(e) => handlePointerDown(e, pt.cmdIdx, pt.field)}
@@ -574,7 +574,7 @@ export function GlyphShaperEditor({
 								fontSize: 16,
 								border: '1px solid rgba(255,255,255,0.2)',
 								borderRadius: 4,
-								background: editingChar === char ? 'rgba(212,184,240,0.15)' : 'transparent',
+								background: editingChar === char ? 'rgba(53,221,226,0.15)' : 'transparent',
 								cursor: 'pointer',
 								color: 'inherit',
 								transition: 'background 0.15s',
@@ -650,8 +650,8 @@ export function GlyphShaperEditor({
 								fontSize: 12,
 								padding: '4px 12px',
 								borderRadius: 20,
-								border: '1px solid rgba(212,184,240,0.7)',
-								background: 'rgba(212,184,240,0.1)',
+								border: '1px solid rgba(53,221,226,0.7)',
+								background: 'rgba(53,221,226,0.1)',
 								color: 'inherit',
 								cursor: 'pointer',
 								marginLeft: 'auto',

@@ -259,8 +259,8 @@ function st({
           "path",
           {
             d: G,
-            fill: "rgba(212,184,240,0.12)",
-            stroke: "rgba(212,184,240,0.55)",
+            fill: "rgba(53,221,226,0.12)",
+            stroke: "rgba(53,221,226,0.55)",
             strokeWidth: 2 / f,
             fillRule: "nonzero"
           }
@@ -292,8 +292,8 @@ function st({
               cx: w,
               cy: $,
               r: I,
-              fill: s.kind === "anchor" ? "rgba(212,184,240,0.9)" : "rgba(0,0,0,0)",
-              stroke: "rgba(212,184,240,0.75)",
+              fill: s.kind === "anchor" ? "rgba(53,221,226,0.9)" : "rgba(0,0,0,0)",
+              stroke: "rgba(53,221,226,0.75)",
               strokeWidth: 1.5,
               style: { cursor: "grab" },
               onPointerDown: (U) => L(U, s.cmdIdx, s.field)
@@ -395,7 +395,7 @@ function ft({
               fontSize: 16,
               border: "1px solid rgba(255,255,255,0.2)",
               borderRadius: 4,
-              background: u === l ? "rgba(212,184,240,0.15)" : "transparent",
+              background: u === l ? "rgba(53,221,226,0.15)" : "transparent",
               cursor: "pointer",
               color: "inherit",
               transition: "background 0.15s"
@@ -477,8 +477,8 @@ function ft({
                   fontSize: 12,
                   padding: "4px 12px",
                   borderRadius: 20,
-                  border: "1px solid rgba(212,184,240,0.7)",
-                  background: "rgba(212,184,240,0.1)",
+                  border: "1px solid rgba(53,221,226,0.7)",
+                  background: "rgba(53,221,226,0.1)",
                   color: "inherit",
                   cursor: "pointer",
                   marginLeft: "auto"

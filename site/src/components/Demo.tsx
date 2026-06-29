@@ -201,20 +201,23 @@ function Tooltip({
 		return () => mq.removeEventListener("change", onChange)
 	}, [])
 
+	// The editor is its own neutral surface (dark or light per OS preference) so glyphs stay legible
+	// for editing; only the ACCENT (tabs, anchors, primary action) carries the tool's teal hue.
+	// Text/borders use readable neutral tints — NOT --panel (a surface tone, which washed them out).
 	const theme = useMemo(() => ({
 		bg:          dark ? "rgba(10,10,12,0.97)"     : "rgba(250,250,252,0.97)",
-		border:      dark ? "color-mix(in oklch, var(--foreground) 10%, transparent)"   : "color-mix(in oklch, var(--foreground) 10%, transparent)",
-		divider:     dark ? "color-mix(in oklch, var(--foreground) 7%, transparent)"  : "color-mix(in oklch, var(--foreground) 7%, transparent)",
-		shadow:      dark ? "0 8px 32px var(--panel)" : "0 8px 32px color-mix(in oklch, var(--foreground) 14%, transparent)",
-		text:        dark ? "var(--panel)"  : "rgba(15,15,15,0.9)",
-		dim:         dark ? "var(--panel)"  : "var(--panel)",
-		accent:      dark ? "var(--foreground)"     : "oklch(0.40 0.11 198)",
-		accentBg:    dark ? "color-mix(in oklch, var(--foreground) 12%, transparent)"  : "color-mix(in oklch, oklch(0.40 0.11 198) 9%, transparent)",
-		tabBorder:   dark ? "var(--panel)"  : "var(--panel)",
-		tabInactive: dark ? "var(--panel)"  : "var(--panel)",
-		btnBorder:   dark ? "var(--panel)"   : "var(--panel)",
-		btnPrimBorder: dark ? "color-mix(in oklch, var(--foreground) 60%, transparent)" : "color-mix(in oklch, oklch(0.40 0.11 198) 50%, transparent)",
-		btnPrimBg:   dark ? "color-mix(in oklch, var(--foreground) 10%, transparent)"   : "color-mix(in oklch, oklch(0.40 0.11 198) 8%, transparent)",
+		border:      dark ? "rgba(255,255,255,0.10)"  : "rgba(0,0,0,0.10)",
+		divider:     dark ? "rgba(255,255,255,0.07)"  : "rgba(0,0,0,0.07)",
+		shadow:      dark ? "0 8px 32px rgba(0,0,0,0.55)" : "0 8px 32px rgba(0,0,0,0.14)",
+		text:        dark ? "rgba(245,245,250,0.95)"  : "rgba(15,15,15,0.9)",
+		dim:         dark ? "rgba(245,245,250,0.5)"   : "rgba(15,15,15,0.5)",
+		accent:      dark ? "oklch(0.80 0.13 198)"    : "oklch(0.42 0.11 198)",
+		accentBg:    dark ? "color-mix(in oklch, oklch(0.80 0.13 198) 16%, transparent)"  : "color-mix(in oklch, oklch(0.42 0.11 198) 9%, transparent)",
+		tabBorder:   dark ? "rgba(255,255,255,0.16)"  : "rgba(0,0,0,0.14)",
+		tabInactive: dark ? "rgba(245,245,250,0.5)"   : "rgba(15,15,15,0.5)",
+		btnBorder:   dark ? "rgba(255,255,255,0.22)"  : "rgba(0,0,0,0.2)",
+		btnPrimBorder: dark ? "color-mix(in oklch, oklch(0.80 0.13 198) 60%, transparent)" : "color-mix(in oklch, oklch(0.42 0.11 198) 50%, transparent)",
+		btnPrimBg:   dark ? "color-mix(in oklch, oklch(0.80 0.13 198) 16%, transparent)"  : "color-mix(in oklch, oklch(0.42 0.11 198) 8%, transparent)",
 	}), [dark])
 
 	// ── Drag ──────────────────────────────────────────────────────────────────
