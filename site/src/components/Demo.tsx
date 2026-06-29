@@ -208,13 +208,13 @@ function Tooltip({
 		shadow:      dark ? "0 8px 32px var(--panel)" : "0 8px 32px color-mix(in oklch, var(--foreground) 14%, transparent)",
 		text:        dark ? "var(--panel)"  : "rgba(15,15,15,0.9)",
 		dim:         dark ? "var(--panel)"  : "var(--panel)",
-		accent:      dark ? "rgba(212,184,240,1)"     : "rgba(105,55,185,1)",
-		accentBg:    dark ? "rgba(212,184,240,0.12)"  : "rgba(105,55,185,0.09)",
+		accent:      dark ? "var(--foreground)"     : "oklch(0.40 0.11 198)",
+		accentBg:    dark ? "color-mix(in oklch, var(--foreground) 12%, transparent)"  : "color-mix(in oklch, oklch(0.40 0.11 198) 9%, transparent)",
 		tabBorder:   dark ? "var(--panel)"  : "var(--panel)",
 		tabInactive: dark ? "var(--panel)"  : "var(--panel)",
 		btnBorder:   dark ? "var(--panel)"   : "var(--panel)",
-		btnPrimBorder: dark ? "rgba(212,184,240,0.6)" : "rgba(105,55,185,0.5)",
-		btnPrimBg:   dark ? "rgba(212,184,240,0.1)"   : "rgba(105,55,185,0.08)",
+		btnPrimBorder: dark ? "color-mix(in oklch, var(--foreground) 60%, transparent)" : "color-mix(in oklch, oklch(0.40 0.11 198) 50%, transparent)",
+		btnPrimBg:   dark ? "color-mix(in oklch, var(--foreground) 10%, transparent)"   : "color-mix(in oklch, oklch(0.40 0.11 198) 8%, transparent)",
 	}), [dark])
 
 	// ── Drag ──────────────────────────────────────────────────────────────────
@@ -458,8 +458,8 @@ const ClickableText = memo(function ClickableText({ text, selectedChar, onSelect
 						}}
 						style={{
 							cursor: "pointer",
-							borderBottom: isSelected ? "1px solid rgba(212,184,240,0.7)" : "1px solid transparent",
-							color: isSelected ? "rgba(212,184,240,1)" : "inherit",
+							borderBottom: isSelected ? "1px solid color-mix(in oklch, var(--foreground) 70%, transparent)" : "1px solid transparent",
+							color: isSelected ? "var(--foreground)" : "inherit",
 							transition: "color 0.1s, border-color 0.1s",
 						}}
 					>
