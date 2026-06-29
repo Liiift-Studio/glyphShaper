@@ -1,14 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#002624"/>
+  <rect width="64" height="64" rx="14" fill="#1b3333"/>
   <!-- Bezier curve (C-shape like a glyph outline) -->
-  <path d="M 48 14 C 24 14, 12 22, 12 32 C 12 42, 24 50, 48 50" stroke="#eff7f6" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M 48 14 C 24 14, 12 22, 12 32 C 12 42, 24 50, 48 50" stroke="#eff7f7" stroke-width="3" fill="none" stroke-linecap="round"/>
   <!-- Control handle arms -->
-  <line x1="48" y1="14" x2="24" y2="14" stroke="#eff7f6" stroke-width="1.5" opacity="0.4"/>
-  <line x1="48" y1="50" x2="24" y2="50" stroke="#eff7f6" stroke-width="1.5" opacity="0.4"/>
+  <line x1="48" y1="14" x2="24" y2="14" stroke="#eff7f7" stroke-width="1.5" opacity="0.4"/>
+  <line x1="48" y1="50" x2="24" y2="50" stroke="#eff7f7" stroke-width="1.5" opacity="0.4"/>
   <!-- Control point diamonds -->
-  <rect x="20" y="10" width="8" height="8" rx="1" fill="#eff7f6" opacity="0.65" transform="rotate(45 24 14)"/>
-  <rect x="20" y="46" width="8" height="8" rx="1" fill="#eff7f6" opacity="0.65" transform="rotate(45 24 50)"/>
+  <rect x="20" y="10" width="8" height="8" rx="1" fill="#eff7f7" opacity="0.65" transform="rotate(45 24 14)"/>
+  <rect x="20" y="46" width="8" height="8" rx="1" fill="#eff7f7" opacity="0.65" transform="rotate(45 24 50)"/>
   <!-- On-curve anchor points -->
-  <circle cx="48" cy="14" r="4" fill="#eff7f6"/>
-  <circle cx="48" cy="50" r="4" fill="#eff7f6"/>
+  <circle cx="48" cy="14" r="4" fill="#eff7f7"/>
+  <circle cx="48" cy="50" r="4" fill="#eff7f7"/>
 </svg>
